@@ -1,14 +1,35 @@
-// server.js
+// src/server.js
 import dotenv from 'dotenv';
 dotenv.config();
 
-import app from './app.js';
+import express from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import os from 'os';
 
-const PORT = process.env.PORT || 3000;
-const HOST = process.env.HOST || '0.0.0.0';
+import app from './app.js';
+import filesRoutes from './routes/files.routes.js';
+import newsRoutes from './routes/news.routes.js';
+import { pool } from './db.js'; // ⟵ pool real (mysql2/promise)
 
-// Helper: intenta obtener una IP LAN legible para el log
+// Inyectar pool al app (para req.app.get('db'))
+app.set('db', pool);
+
+// __dirname en ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = path.dirname(__filename);
+
+// Estáticos: /uploads
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+
+// Rutas adicionales
+app.use('/api/news', newsRoutes);
+app.use('/api/files', filesRoutes);
+
+const PORT = Number(process.env.PORT || 3000);
+const HOST = process.env.HOST || '0.0.0.0';
+const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || '';
+
 function getLocalIp() {
   const ifaces = os.networkInterfaces();
   for (const name of Object.keys(ifaces)) {
@@ -19,14 +40,33 @@ function getLocalIp() {
   return 'localhost';
 }
 
-const ip = getLocalIp();
+async function bootstrap() {
+  try {
+    // Probar DB
+    await pool.query('SELECT 1 + 1 AS ok');
+    console.log('✅ MySQL pool conectado.');
 
-const server = app.listen(PORT, HOST, () => {
-  console.log(`FitNow API listening on http://${HOST}:${PORT}`);
-  console.log(`Local LAN URL (from other devices): http://${ip}:${PORT}`);
-});
+    const ip = getLocalIp();
+    const server = app.listen(PORT, HOST, () => {
+      console.log(`🚀 FitNow API escuchando en http://${HOST}:${PORT}`);
+      console.log(`🔌 Acceso LAN: http://${ip}:${PORT}`);
+      if (PUBLIC_BASE_URL) console.log(`🌍 Público (ngrok/dom): ${PUBLIC_BASE_URL}`);
+    });
 
-// Opcional: logs de error de arranque
-server.on('error', (err) => {
-  console.error('Server error:', err);
-});
+    server.on('error', (err) => {
+      console.error('Server error:', err);
+    });
+
+    // Cierre limpio
+    process.on('SIGINT', async () => {
+      console.log('\n🛑 Cerrando servidor...');
+      try { await pool.end(); console.log('🔌 Pool MySQL cerrado.'); } catch {}
+      process.exit(0);
+    });
+  } catch (e) {
+    console.error('❌ Error al iniciar servidor:', e);
+    process.exit(1);
+  }
+}
+
+bootstrap();
