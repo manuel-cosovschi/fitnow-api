@@ -1,5 +1,5 @@
 // src/controllers/activities.controller.js
-import pool from '../db.js';
+import { pool } from '../db.js';
 
 export async function listActivities(req, res) {
   try {

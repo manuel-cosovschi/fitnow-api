@@ -1,6 +1,6 @@
 // src/routes/sessions.routes.js
 import { Router } from 'express';
-import pool from '../db.js';
+import { pool } from '../db.js';
 import { authMiddleware as auth } from '../middleware/auth.js';
 
 const router = Router();

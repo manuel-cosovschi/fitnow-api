@@ -1,5 +1,5 @@
 // src/controllers/enrollments.controller.js
-import pool from '../db.js';
+import { pool } from '../db.js';
 
 export async function createEnrollment(req, res) {
   try {

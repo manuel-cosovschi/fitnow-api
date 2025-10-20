@@ -1,5 +1,5 @@
 // src/controllers/sessions.controller.js
-import pool from '../db.js';
+import { pool } from '../db.js';
 
 export async function listSessionsByActivity(req, res) {
   try {
