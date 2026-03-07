@@ -17,6 +17,7 @@ import newsRoutes      from './routes/news.routes.js';
 import adminRoutes     from './routes/admin.routes.js';
 import accountRoutes   from './routes/account.routes.js';
 import filesRoutes     from './routes/files.routes.js';
+import sessionsRoutes  from './routes/sessions.routes.js';
 
 const app = express();
 
@@ -86,6 +87,10 @@ app.use('/api/news',        newsRoutes);
 app.use('/api/admin',       adminRoutes);
 app.use('/api/account',     accountRoutes);
 app.use('/api/files',       filesRoutes);
+// Mounted at /api (not a sub-prefix) so it can serve both
+// GET  /api/activities/:id/sessions  and
+// POST /api/sessions/:sid/book
+app.use('/api',             sessionsRoutes);
 
 // ── Global error handler — must be last ────────────────────────────────────────
 app.use(errorMiddleware);
