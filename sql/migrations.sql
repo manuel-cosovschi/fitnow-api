@@ -213,3 +213,18 @@ ALTER TABLE enrollments
 ALTER TABLE enrollments
   ADD INDEX IF NOT EXISTS idx_enr_session_id (session_id),
   ADD INDEX IF NOT EXISTS idx_enr_status     (status);
+
+-- ─────────────────────────────────────────────
+-- 13. PASSWORD RESET TOKENS
+-- ─────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id         INT AUTO_INCREMENT PRIMARY KEY,
+  user_id    INT          NOT NULL,
+  token_hash CHAR(64)     NOT NULL,
+  expires_at DATETIME     NOT NULL,
+  used_at    DATETIME     NULL,
+  created_at TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_prt_token   (token_hash),
+  INDEX idx_prt_user_id (user_id),
+  CONSTRAINT fk_prt_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
