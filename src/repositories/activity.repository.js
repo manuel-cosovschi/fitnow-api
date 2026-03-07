@@ -117,7 +117,7 @@ export async function incrementSessionSeats(conn, sessionId) {
 }
 
 export async function createSession(activityId, fields) {
-  const { start_at, end_at, capacity, price, level, instructor } = fields;
+  const { start_at, end_at, capacity, price, level } = fields;
   const result = await query(
     `INSERT INTO activity_sessions (activity_id, start_at, end_at, capacity, seats_left, price, level)
      VALUES (?,?,?,?,?,?,?)`,
