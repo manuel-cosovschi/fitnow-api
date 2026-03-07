@@ -127,59 +127,46 @@ CREATE TABLE IF NOT EXISTS hazard_votes (
 -- ─────────────────────────────────────────────
 -- 7. ALTER ACTIVITIES — columnas faltantes
 -- ─────────────────────────────────────────────
-ALTER TABLE activities
-  ADD COLUMN IF NOT EXISTS provider_id INT          NULL           AFTER id,
-  ADD COLUMN IF NOT EXISTS sport_id    INT          NULL           AFTER provider_id,
-  ADD COLUMN IF NOT EXISTS kind        VARCHAR(40)  DEFAULT 'gym'  AFTER sport_id,
-  ADD COLUMN IF NOT EXISTS status      ENUM('draft','active','cancelled') NOT NULL DEFAULT 'active' AFTER kind,
-  ADD COLUMN IF NOT EXISTS updated_at  TIMESTAMP    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at;
-
-ALTER TABLE activities
-  ADD INDEX IF NOT EXISTS idx_act_provider_id (provider_id),
-  ADD INDEX IF NOT EXISTS idx_act_sport_id    (sport_id),
-  ADD INDEX IF NOT EXISTS idx_act_status      (status),
-  ADD INDEX IF NOT EXISTS idx_act_date_start  (date_start);
+ALTER TABLE activities ADD COLUMN provider_id INT NULL AFTER id;
+ALTER TABLE activities ADD COLUMN sport_id INT NULL AFTER provider_id;
+ALTER TABLE activities ADD COLUMN kind VARCHAR(40) DEFAULT 'gym' AFTER sport_id;
+ALTER TABLE activities ADD COLUMN status ENUM('draft','active','cancelled') NOT NULL DEFAULT 'active' AFTER kind;
+ALTER TABLE activities ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at;
+ALTER TABLE activities ADD INDEX idx_act_provider_id (provider_id);
+ALTER TABLE activities ADD INDEX idx_act_sport_id (sport_id);
+ALTER TABLE activities ADD INDEX idx_act_status (status);
+ALTER TABLE activities ADD INDEX idx_act_date_start (date_start);
 
 -- ─────────────────────────────────────────────
 -- 8. ALTER RUN_ROUTES — columnas faltantes
 -- ─────────────────────────────────────────────
-ALTER TABLE run_routes
-  ADD COLUMN IF NOT EXISTS provider_id      INT          NULL          AFTER id,
-  ADD COLUMN IF NOT EXISTS description      TEXT         NULL          AFTER title,
-  ADD COLUMN IF NOT EXISTS surface          ENUM('road','trail','mixed') NOT NULL DEFAULT 'road' AFTER city,
-  ADD COLUMN IF NOT EXISTS difficulty       ENUM('baja','media','alta') NOT NULL DEFAULT 'media' AFTER surface,
-  ADD COLUMN IF NOT EXISTS elevation_down_m INT          NOT NULL DEFAULT 0 AFTER elevation_up_m,
-  ADD COLUMN IF NOT EXISTS thumbnail_url    VARCHAR(500) NULL          AFTER bbox_max_lng,
-  ADD COLUMN IF NOT EXISTS status           ENUM('active','inactive') NOT NULL DEFAULT 'active' AFTER thumbnail_url,
-  ADD COLUMN IF NOT EXISTS updated_at       TIMESTAMP    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at;
-
-ALTER TABLE run_routes
-  ADD INDEX IF NOT EXISTS idx_rr_center  (center_lat, center_lng),
-  ADD INDEX IF NOT EXISTS idx_rr_status  (status),
-  ADD INDEX IF NOT EXISTS idx_rr_surface (surface);
+ALTER TABLE run_routes ADD COLUMN provider_id INT NULL AFTER id;
+ALTER TABLE run_routes ADD COLUMN description TEXT NULL AFTER title;
+ALTER TABLE run_routes ADD COLUMN surface ENUM('road','trail','mixed') NOT NULL DEFAULT 'road' AFTER city;
+ALTER TABLE run_routes ADD COLUMN difficulty ENUM('baja','media','alta') NOT NULL DEFAULT 'media' AFTER surface;
+ALTER TABLE run_routes ADD COLUMN elevation_down_m INT NOT NULL DEFAULT 0 AFTER elevation_up_m;
+ALTER TABLE run_routes ADD COLUMN thumbnail_url VARCHAR(500) NULL AFTER bbox_max_lng;
+ALTER TABLE run_routes ADD COLUMN status ENUM('active','inactive') NOT NULL DEFAULT 'active' AFTER thumbnail_url;
+ALTER TABLE run_routes ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at;
+ALTER TABLE run_routes ADD INDEX idx_rr_center (center_lat, center_lng);
+ALTER TABLE run_routes ADD INDEX idx_rr_status (status);
+ALTER TABLE run_routes ADD INDEX idx_rr_surface (surface);
 
 -- ─────────────────────────────────────────────
 -- 9. ALTER RUN_FEEDBACK — columnas faltantes
 -- ─────────────────────────────────────────────
-ALTER TABLE run_feedback
-  ADD COLUMN IF NOT EXISTS session_id          INT     NULL AFTER user_id,
-  ADD COLUMN IF NOT EXISTS fatigue_level       TINYINT NULL AFTER notes,
-  ADD COLUMN IF NOT EXISTS perceived_difficulty TINYINT NULL AFTER fatigue_level;
-
--- Unique: un feedback por ruta por usuario
-ALTER TABLE run_feedback
-  ADD UNIQUE KEY IF NOT EXISTS uq_rf_user_route (user_id, route_id);
+ALTER TABLE run_feedback ADD COLUMN session_id INT NULL AFTER user_id;
+ALTER TABLE run_feedback ADD COLUMN fatigue_level TINYINT NULL AFTER notes;
+ALTER TABLE run_feedback ADD COLUMN perceived_difficulty TINYINT NULL AFTER fatigue_level;
+ALTER TABLE run_feedback ADD UNIQUE KEY uq_rf_user_route (user_id, route_id);
 
 -- ─────────────────────────────────────────────
 -- 10. ALTER HAZARDS — columnas faltantes
 -- ─────────────────────────────────────────────
-ALTER TABLE hazards
-  ADD COLUMN IF NOT EXISTS status     ENUM('active','resolved','removed') NOT NULL DEFAULT 'active' AFTER votes,
-  ADD COLUMN IF NOT EXISTS expires_at DATETIME NULL AFTER status;
-
-ALTER TABLE hazards
-  ADD INDEX IF NOT EXISTS idx_hz_location (lat, lng),
-  ADD INDEX IF NOT EXISTS idx_hz_status   (status);
+ALTER TABLE hazards ADD COLUMN status ENUM('active','resolved','removed') NOT NULL DEFAULT 'active' AFTER votes;
+ALTER TABLE hazards ADD COLUMN expires_at DATETIME NULL AFTER status;
+ALTER TABLE hazards ADD INDEX idx_hz_location (lat, lng);
+ALTER TABLE hazards ADD INDEX idx_hz_status (status);
 
 -- ─────────────────────────────────────────────
 -- 11. SEEDS INICIALES
@@ -203,16 +190,13 @@ INSERT IGNORE INTO news (icon, title, subtitle, color, starts_at, ends_at) VALUE
 -- ─────────────────────────────────────────────
 -- 12. ALTER ENROLLMENTS — columnas faltantes
 -- ─────────────────────────────────────────────
-ALTER TABLE enrollments
-  ADD COLUMN IF NOT EXISTS session_id  INT     NULL            AFTER activity_id,
-  ADD COLUMN IF NOT EXISTS price_paid  DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER session_id,
-  ADD COLUMN IF NOT EXISTS start_at    DATETIME NULL           AFTER price_paid,
-  ADD COLUMN IF NOT EXISTS end_at      DATETIME NULL           AFTER start_at,
-  ADD COLUMN IF NOT EXISTS status      ENUM('active','cancelled') NOT NULL DEFAULT 'active' AFTER end_at;
-
-ALTER TABLE enrollments
-  ADD INDEX IF NOT EXISTS idx_enr_session_id (session_id),
-  ADD INDEX IF NOT EXISTS idx_enr_status     (status);
+ALTER TABLE enrollments ADD COLUMN session_id INT NULL AFTER activity_id;
+ALTER TABLE enrollments ADD COLUMN price_paid DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER session_id;
+ALTER TABLE enrollments ADD COLUMN start_at DATETIME NULL AFTER price_paid;
+ALTER TABLE enrollments ADD COLUMN end_at DATETIME NULL AFTER start_at;
+ALTER TABLE enrollments ADD COLUMN status ENUM('active','cancelled') NOT NULL DEFAULT 'active' AFTER end_at;
+ALTER TABLE enrollments ADD INDEX idx_enr_session_id (session_id);
+ALTER TABLE enrollments ADD INDEX idx_enr_status (status);
 
 -- ─────────────────────────────────────────────
 -- 13. PASSWORD RESET TOKENS
