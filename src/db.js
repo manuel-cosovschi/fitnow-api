@@ -6,7 +6,7 @@ import 'dotenv/config';
 const {
   DB_HOST = '127.0.0.1',
   DB_USER = 'root',
-  DB_PASSWORD = 'Cedetalvo1',
+  DB_PASSWORD = '',
   DB_NAME = 'fitnow',
   DB_PORT = '3306',
   DB_CONNECTION_LIMIT = '10',
