@@ -31,3 +31,9 @@ export const submitFeedbackSchema = z.object({
   rating:  z.number().int().min(1).max(5),
   comment: z.string().trim().max(1000).optional().nullable(),
 });
+
+export const generateRoutesSchema = z.object({
+  origin_lat:  z.number().min(-90).max(90),
+  origin_lng:  z.number().min(-180).max(180),
+  distance_m:  z.number().int().min(500).max(100000),
+});

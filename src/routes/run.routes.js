@@ -1,7 +1,6 @@
 // src/routes/run.routes.js
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
-import { requireRole } from '../middleware/roles.middleware.js';
 import { validateBody } from '../middleware/validate.js';
 import { startSessionSchema, pushTelemetrySchema, finishSessionSchema, submitFeedbackSchema } from '../schemas/run.schemas.js';
 import * as ctrl from '../controllers/run.controller.js';
@@ -12,7 +11,7 @@ const router = Router();
 router.get  ('/routes',             ctrl.listRoutes);
 router.get  ('/routes/recommend',   requireAuth, ctrl.recommend);
 router.get  ('/routes/:id',         ctrl.getRoute);
-router.post ('/routes', requireAuth, requireRole('admin','provider_admin'), ctrl.createRoute);
+router.post ('/routes',             requireAuth, ctrl.routesPost);
 router.get  ('/routes/:id/feedback', ctrl.getRouteFeedback);
 router.post ('/routes/:id/feedback', requireAuth, validateBody(submitFeedbackSchema), ctrl.submitFeedback);
 
