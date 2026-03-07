@@ -20,9 +20,10 @@ export const createProviderSchema = z.object({
 export const updateProviderSchema = createProviderSchema.partial();
 
 const hourSchema = z.object({
-  day_of_week: z.number().int().min(0).max(6),
-  open_time:   z.string().regex(/^\d{2}:\d{2}$/, 'Formato HH:MM requerido.'),
-  close_time:  z.string().regex(/^\d{2}:\d{2}$/, 'Formato HH:MM requerido.'),
+  weekday:    z.number().int().min(0).max(6),
+  open_time:  z.string().regex(/^\d{2}:\d{2}$/, 'Formato HH:MM requerido.'),
+  close_time: z.string().regex(/^\d{2}:\d{2}$/, 'Formato HH:MM requerido.'),
+  closed:     z.boolean().optional(),
 });
 
 export const setHoursSchema = z.array(hourSchema).max(14);

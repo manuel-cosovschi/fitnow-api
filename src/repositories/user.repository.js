@@ -57,3 +57,33 @@ export async function findResetToken(tokenHash) {
 export async function markResetTokenUsed(id) {
   await query(`UPDATE password_reset_tokens SET used_at = NOW() WHERE id = ?`, [id]);
 }
+
+export async function setRoleAndProvider(id, role, providerId) {
+  await query(
+    `UPDATE users SET role = ?, provider_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+    [role, providerId ?? null, id]
+  );
+  return findById(id);
+}
+
+export async function findMany({ q, role, limit = 20, offset = 0 } = {}) {
+  const where  = ['deleted_at IS NULL'];
+  const params = [];
+  if (q)    { where.push(`(name LIKE ? OR email LIKE ?)`); params.push(`%${q}%`, `%${q}%`); }
+  if (role) { where.push(`role = ?`); params.push(role); }
+  const whereClause = `WHERE ${where.join(' AND ')}`;
+  return query(
+    `SELECT ${PUBLIC_COLS} FROM users ${whereClause} ORDER BY id DESC LIMIT ? OFFSET ?`,
+    [...params, limit, offset]
+  );
+}
+
+export async function countMany({ q, role } = {}) {
+  const where  = ['deleted_at IS NULL'];
+  const params = [];
+  if (q)    { where.push(`(name LIKE ? OR email LIKE ?)`); params.push(`%${q}%`, `%${q}%`); }
+  if (role) { where.push(`role = ?`); params.push(role); }
+  const whereClause = `WHERE ${where.join(' AND ')}`;
+  const row = await queryOne(`SELECT COUNT(*) AS total FROM users ${whereClause}`, params);
+  return row?.total ?? 0;
+}
