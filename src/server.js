@@ -2,29 +2,23 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import os from 'os';
 
 import app from './app.js';
-import filesRoutes from './routes/files.routes.js';
-import newsRoutes from './routes/news.routes.js';
-import { pool } from './db.js'; // ⟵ pool real (mysql2/promise)
-
-// Inyectar pool al app (para req.app.get('db'))
-app.set('db', pool);
+import { pool } from './db.js';
 
 // __dirname en ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
-// Estáticos: /uploads
-app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+// Inyectar pool al app (para req.app.get('db'))
+app.set('db', pool);
 
-// Rutas adicionales
-app.use('/api/news', newsRoutes);
-app.use('/api/files', filesRoutes);
+// Estáticos: /uploads
+import express from 'express';
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || '0.0.0.0';
