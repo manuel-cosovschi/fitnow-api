@@ -1,17 +1,29 @@
 // src/repositories/provider.repository.js
 import { query, queryOne } from '../db.js';
 
-export async function findMany({ where = [], params = [], limit = 20, offset = 0 } = {}) {
+export async function findMany({ status, kind, city, q, limit = 20, offset = 0 } = {}) {
+  const where  = [];
+  const params = [];
+  if (status) { where.push(`p.status = ?`);  params.push(status); }
+  if (kind)   { where.push(`p.kind = ?`);    params.push(kind); }
+  if (city)   { where.push(`p.city = ?`);    params.push(city); }
+  if (q)      { where.push(`p.name LIKE ?`); params.push(`%${q}%`); }
   const whereClause = where.length ? `WHERE ${where.join(' AND ')}` : '';
   return query(
-    `SELECT * FROM providers ${whereClause} ORDER BY name ASC LIMIT ? OFFSET ?`,
+    `SELECT * FROM providers p ${whereClause} ORDER BY p.name ASC LIMIT ? OFFSET ?`,
     [...params, limit, offset]
   );
 }
 
-export async function countMany({ where = [], params = [] } = {}) {
+export async function countMany({ status, kind, city, q } = {}) {
+  const where  = [];
+  const params = [];
+  if (status) { where.push(`p.status = ?`);  params.push(status); }
+  if (kind)   { where.push(`p.kind = ?`);    params.push(kind); }
+  if (city)   { where.push(`p.city = ?`);    params.push(city); }
+  if (q)      { where.push(`p.name LIKE ?`); params.push(`%${q}%`); }
   const whereClause = where.length ? `WHERE ${where.join(' AND ')}` : '';
-  const row = await queryOne(`SELECT COUNT(*) AS total FROM providers ${whereClause}`, params);
+  const row = await queryOne(`SELECT COUNT(*) AS total FROM providers p ${whereClause}`, params);
   return row?.total ?? 0;
 }
 
@@ -54,14 +66,28 @@ export async function replaceHours(providerId, hours) {
 }
 
 export async function findServices(providerId) {
-  return query(`SELECT * FROM provider_services WHERE provider_id = ? ORDER BY id ASC`, [providerId]);
+  return query(
+    `SELECT ps.id, ps.provider_id, ps.sport_id, ps.description, s.name AS sport_name
+     FROM provider_sports ps
+     JOIN sports s ON s.id = ps.sport_id
+     WHERE ps.provider_id = ?
+     ORDER BY ps.id ASC`,
+    [providerId]
+  );
 }
 
-export async function addService(providerId, name) {
-  const result = await query(`INSERT INTO provider_services (provider_id, name) VALUES (?,?)`, [providerId, name]);
-  return { id: result.insertId, provider_id: providerId, name };
+export async function addService(providerId, { sport_id, description }) {
+  const result = await query(
+    `INSERT INTO provider_sports (provider_id, sport_id, description) VALUES (?,?,?)`,
+    [providerId, sport_id, description ?? null]
+  );
+  return queryOne(
+    `SELECT ps.id, ps.provider_id, ps.sport_id, ps.description, s.name AS sport_name
+     FROM provider_sports ps JOIN sports s ON s.id = ps.sport_id WHERE ps.id = ?`,
+    [result.insertId]
+  );
 }
 
-export async function removeService(providerId, serviceId) {
-  await query(`DELETE FROM provider_services WHERE id = ? AND provider_id = ?`, [serviceId, providerId]);
+export async function removeService(serviceId) {
+  await query(`DELETE FROM provider_sports WHERE id = ?`, [serviceId]);
 }

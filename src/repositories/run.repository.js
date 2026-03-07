@@ -4,20 +4,24 @@ import { radiusToDeg } from '../utils/geo.js';
 
 // ─── Run Routes ───────────────────────────────────────────────────────────────
 
-export async function findRoutes({ lat, lng, radiusM = 10000, surface, difficulty, minDistM, maxDistM, limit = 20, offset = 0 } = {}) {
-  const where  = [`rr.status = 'active'`];
+export async function findRoutes({ lat, lng, radius_m = 10000, surface, difficulty, status, q, min_dist_m, max_dist_m, limit = 20, offset = 0 } = {}) {
+  const where  = [];
   const params = [];
 
+  where.push(`rr.status = ?`);
+  params.push(status ?? 'active');
+
   if (lat != null && lng != null) {
-    const deg = radiusToDeg(radiusM);
+    const deg = radiusToDeg(radius_m);
     where.push(`rr.center_lat BETWEEN ? AND ?`);
     where.push(`rr.center_lng BETWEEN ? AND ?`);
     params.push(lat - deg, lat + deg, lng - deg, lng + deg);
   }
-  if (surface)    { where.push(`rr.surface = ?`);    params.push(surface); }
-  if (difficulty) { where.push(`rr.difficulty = ?`); params.push(difficulty); }
-  if (minDistM)   { where.push(`rr.distance_m >= ?`); params.push(minDistM); }
-  if (maxDistM)   { where.push(`rr.distance_m <= ?`); params.push(maxDistM); }
+  if (surface)    { where.push(`rr.surface = ?`);      params.push(surface); }
+  if (difficulty) { where.push(`rr.difficulty = ?`);   params.push(difficulty); }
+  if (q)          { where.push(`rr.title LIKE ?`);     params.push(`%${q}%`); }
+  if (min_dist_m) { where.push(`rr.distance_m >= ?`);  params.push(min_dist_m); }
+  if (max_dist_m) { where.push(`rr.distance_m <= ?`);  params.push(max_dist_m); }
 
   const distExpr = (lat != null && lng != null)
     ? `(6371000 * ACOS(LEAST(1.0, COS(RADIANS(${lat})) * COS(RADIANS(rr.center_lat))
@@ -48,19 +52,24 @@ export async function findRoutes({ lat, lng, radiusM = 10000, surface, difficult
   return rows;
 }
 
-export async function countRoutes({ lat, lng, radiusM = 10000, surface, difficulty, minDistM, maxDistM } = {}) {
-  const where  = [`rr.status = 'active'`];
+export async function countRoutes({ lat, lng, radius_m = 10000, surface, difficulty, status, q, min_dist_m, max_dist_m } = {}) {
+  const where  = [];
   const params = [];
+
+  where.push(`rr.status = ?`);
+  params.push(status ?? 'active');
+
   if (lat != null && lng != null) {
-    const deg = radiusToDeg(radiusM);
+    const deg = radiusToDeg(radius_m);
     where.push(`rr.center_lat BETWEEN ? AND ?`);
     where.push(`rr.center_lng BETWEEN ? AND ?`);
     params.push(lat - deg, lat + deg, lng - deg, lng + deg);
   }
   if (surface)    { where.push(`rr.surface = ?`);     params.push(surface); }
   if (difficulty) { where.push(`rr.difficulty = ?`);  params.push(difficulty); }
-  if (minDistM)   { where.push(`rr.distance_m >= ?`); params.push(minDistM); }
-  if (maxDistM)   { where.push(`rr.distance_m <= ?`); params.push(maxDistM); }
+  if (q)          { where.push(`rr.title LIKE ?`);    params.push(`%${q}%`); }
+  if (min_dist_m) { where.push(`rr.distance_m >= ?`); params.push(min_dist_m); }
+  if (max_dist_m) { where.push(`rr.distance_m <= ?`); params.push(max_dist_m); }
   const row = await queryOne(`SELECT COUNT(*) AS total FROM run_routes rr WHERE ${where.join(' AND ')}`, params);
   return row?.total ?? 0;
 }
@@ -98,8 +107,8 @@ export async function createRoute(fields) {
   return findRouteById(result.insertId);
 }
 
-export async function getRoutesWithMetrics({ lat, lng, radiusM = 10000 }) {
-  const deg = radiusToDeg(radiusM);
+export async function getRoutesWithMetrics({ lat, lng, radius_m = 10000 }) {
+  const deg = radiusToDeg(radius_m);
   return query(
     `SELECT rr.id, rr.title, rr.city, rr.surface, rr.difficulty,
             rr.distance_m, rr.duration_s, rr.elevation_up_m,
@@ -123,7 +132,7 @@ export async function getRoutesWithMetrics({ lat, lng, radiusM = 10000 }) {
        AND rr.center_lng BETWEEN ? AND ?
      GROUP BY rr.id
      HAVING distance_from_user_m < ?`,
-    [lat, lng, lat, lat - deg, lat + deg, lng - deg, lng + deg, radiusM]
+    [lat, lng, lat, lat - deg, lat + deg, lng - deg, lng + deg, radius_m]
   );
 }
 

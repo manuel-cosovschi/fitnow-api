@@ -137,7 +137,19 @@ CREATE TABLE IF NOT EXISTS provider_sports (
   id          INT AUTO_INCREMENT PRIMARY KEY,
   provider_id INT NOT NULL,
   sport_id    INT NOT NULL,
+  description VARCHAR(255) DEFAULT NULL,
   UNIQUE KEY uniq_ps (provider_id, sport_id),
   CONSTRAINT fk_ps_user  FOREIGN KEY (provider_id) REFERENCES users(id)   ON DELETE CASCADE,
   CONSTRAINT fk_ps_sport FOREIGN KEY (sport_id)    REFERENCES sports(id)  ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS provider_hours (
+  id          INT AUTO_INCREMENT PRIMARY KEY,
+  provider_id INT NOT NULL,
+  weekday     TINYINT NOT NULL COMMENT '0=Mon … 6=Sun',
+  open_time   TIME NOT NULL DEFAULT '00:00:00',
+  close_time  TIME NOT NULL DEFAULT '00:00:00',
+  closed      TINYINT(1) NOT NULL DEFAULT 0,
+  UNIQUE KEY uniq_ph (provider_id, weekday),
+  CONSTRAINT fk_ph_provider FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE CASCADE
 );
