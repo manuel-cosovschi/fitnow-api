@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FitNow</title>
+<style>
+  :root {
+    --brand: #00c27c;
+    --brand-dark: #009960;
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --text: #e8eaf0;
+    --muted: #7b8099;
+    --danger: #e05252;
+    --warn: #f0a030;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* ── Auth ─────────────────────────────────── */
+  #auth-screen {
+    display: flex; align-items: center; justify-content: center; min-height: 100vh;
+    background: radial-gradient(ellipse at 60% 20%, #00c27c22 0%, transparent 60%);
+  }
+  .auth-box {
+    background: var(--surface); border-radius: 20px; padding: 40px;
+    width: 380px; max-width: 95vw; box-shadow: 0 20px 60px #00000080;
+  }
+  .logo { font-size: 2rem; font-weight: 800; color: var(--brand); margin-bottom: 6px; }
+  .logo span { color: var(--text); }
+  .tagline { color: var(--muted); font-size: .9rem; margin-bottom: 28px; }
+  .tabs { display: flex; gap: 4px; background: var(--surface2); border-radius: 10px; padding: 4px; margin-bottom: 24px; }
+  .tab { flex: 1; text-align: center; padding: 8px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: .9rem; color: var(--muted); transition: all .2s; }
+  .tab.active { background: var(--brand); color: #fff; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: .8rem; color: var(--muted); margin-bottom: 5px; }
+  .field input { width: 100%; background: var(--surface2); border: 1px solid #ffffff12; border-radius: 8px; padding: 10px 14px; color: var(--text); font-size: .95rem; outline: none; transition: border .2s; }
+  .field input:focus { border-color: var(--brand); }
+  .btn { width: 100%; padding: 12px; border: none; border-radius: 10px; font-size: 1rem; font-weight: 700; cursor: pointer; transition: all .2s; }
+  .btn-primary { background: var(--brand); color: #fff; }
+  .btn-primary:hover { background: var(--brand-dark); }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .err { color: var(--danger); font-size: .85rem; margin-top: 10px; text-align: center; min-height: 20px; }
+
+  /* ── App ──────────────────────────────────── */
+  #app-screen { display: none; }
+  .nav {
+    position: sticky; top: 0; z-index: 100;
+    background: #0f111788; backdrop-filter: blur(12px);
+    border-bottom: 1px solid #ffffff0d;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 28px;
+  }
+  .nav-logo { font-size: 1.3rem; font-weight: 800; color: var(--brand); }
+  .nav-logo span { color: var(--text); }
+  .nav-user { display: flex; align-items: center; gap: 12px; }
+  .avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--brand); display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; font-size: 1rem; }
+  .nav-name { font-size: .9rem; color: var(--muted); }
+  .btn-sm { padding: 7px 16px; border: none; border-radius: 8px; font-size: .85rem; font-weight: 600; cursor: pointer; }
+  .btn-outline { background: transparent; border: 1px solid var(--muted); color: var(--muted); }
+  .btn-outline:hover { border-color: var(--text); color: var(--text); }
+
+  .nav-tabs { display: flex; gap: 4px; }
+  .nav-tab { padding: 7px 16px; border-radius: 8px; cursor: pointer; font-size: .9rem; font-weight: 600; color: var(--muted); transition: all .2s; border: none; background: transparent; }
+  .nav-tab.active { background: var(--surface); color: var(--brand); }
+  .nav-tab:hover:not(.active) { color: var(--text); }
+
+  .page { display: none; padding: 28px; max-width: 1100px; margin: 0 auto; }
+  .page.active { display: block; }
+
+  /* ── Dashboard cards ──────────────────────── */
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 32px; }
+  .stat-card { background: var(--surface); border-radius: var(--radius); padding: 22px; border: 1px solid #ffffff08; }
+  .stat-val { font-size: 2.2rem; font-weight: 800; color: var(--brand); }
+  .stat-lbl { font-size: .85rem; color: var(--muted); margin-top: 4px; }
+
+  /* ── Section titles ───────────────────────── */
+  .section-title { font-size: 1.2rem; font-weight: 700; margin-bottom: 16px; }
+  .section-sub { color: var(--muted); font-size: .85rem; margin-bottom: 20px; }
+
+  /* ── Activity cards ───────────────────────── */
+  .activities-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+  .activity-card {
+    background: var(--surface); border-radius: var(--radius); padding: 20px;
+    border: 1px solid #ffffff08; transition: border .2s;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .activity-card:hover { border-color: #00c27c30; }
+  .activity-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .activity-title { font-weight: 700; font-size: 1rem; line-height: 1.3; }
+  .badge { padding: 3px 9px; border-radius: 20px; font-size: .72rem; font-weight: 700; white-space: nowrap; }
+  .badge-gym { background: #3b82f620; color: #60a5fa; }
+  .badge-outdoor { background: #22c55e20; color: #4ade80; }
+  .badge-clase { background: #a855f720; color: #c084fc; }
+  .badge-torneo { background: #f97316 20; color: #fb923c; }
+  .badge-alta { background: #ef444420; color: #f87171; }
+  .badge-media { background: #f59e0b20; color: #fbbf24; }
+  .badge-baja { background: #10b98120; color: #34d399; }
+  .activity-desc { color: var(--muted); font-size: .85rem; line-height: 1.5; }
+  .activity-meta { display: flex; flex-direction: column; gap: 4px; }
+  .meta-row { display: flex; align-items: center; gap: 6px; font-size: .82rem; color: var(--muted); }
+  .meta-row .icon { font-size: 1rem; }
+  .activity-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
+  .price { font-size: 1.1rem; font-weight: 700; color: var(--brand); }
+  .price.free { color: #4ade80; }
+  .seats { font-size: .8rem; color: var(--muted); }
+  .btn-enroll { padding: 8px 18px; border: none; border-radius: 8px; font-size: .85rem; font-weight: 700; cursor: pointer; background: var(--brand); color: #fff; transition: background .2s; }
+  .btn-enroll:hover { background: var(--brand-dark); }
+  .btn-enroll.enrolled { background: var(--surface2); color: var(--muted); cursor: default; }
+
+  /* ── Run Routes ───────────────────────────── */
+  .routes-list { display: flex; flex-direction: column; gap: 12px; }
+  .route-card {
+    background: var(--surface); border-radius: var(--radius); padding: 18px 22px;
+    border: 1px solid #ffffff08; display: flex; align-items: center; gap: 20px;
+  }
+  .route-icon { font-size: 2rem; }
+  .route-info { flex: 1; }
+  .route-title { font-weight: 700; margin-bottom: 4px; }
+  .route-meta { display: flex; gap: 16px; }
+  .route-stat { display: flex; align-items: center; gap: 5px; font-size: .82rem; color: var(--muted); }
+  .route-stat strong { color: var(--text); font-weight: 600; }
+
+  /* ── Enrollments ──────────────────────────── */
+  .enrollments-list { display: flex; flex-direction: column; gap: 12px; }
+  .enroll-card {
+    background: var(--surface); border-radius: var(--radius); padding: 18px 22px;
+    border: 1px solid #ffffff08; display: flex; align-items: center; gap: 16px;
+  }
+  .enroll-info { flex: 1; }
+  .enroll-title { font-weight: 700; margin-bottom: 4px; }
+  .enroll-meta { font-size: .82rem; color: var(--muted); }
+  .btn-cancel { padding: 7px 14px; border: 1px solid var(--danger); border-radius: 8px; background: transparent; color: var(--danger); font-size: .82rem; font-weight: 600; cursor: pointer; transition: all .2s; }
+  .btn-cancel:hover { background: var(--danger); color: #fff; }
+
+  /* ── Hazards ──────────────────────────────── */
+  .hazard-form { background: var(--surface); border-radius: var(--radius); padding: 24px; border: 1px solid #ffffff08; margin-bottom: 24px; }
+  .hazard-form .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .hazard-form select { width: 100%; background: var(--surface2); border: 1px solid #ffffff12; border-radius: 8px; padding: 10px 14px; color: var(--text); font-size: .95rem; outline: none; }
+  .hazard-form textarea { width: 100%; background: var(--surface2); border: 1px solid #ffffff12; border-radius: 8px; padding: 10px 14px; color: var(--text); font-size: .95rem; outline: none; resize: vertical; min-height: 70px; }
+  .hazard-list { display: flex; flex-direction: column; gap: 10px; }
+  .hazard-card { background: var(--surface); border-radius: 10px; padding: 14px 18px; border: 1px solid #ffffff08; display: flex; align-items: center; gap: 14px; }
+  .hazard-icon { font-size: 1.6rem; }
+  .hazard-info { flex: 1; }
+  .hazard-title { font-weight: 600; font-size: .95rem; }
+  .hazard-meta { font-size: .8rem; color: var(--muted); margin-top: 2px; }
+  .severity-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .sev-1 { background: #4ade80; }
+  .sev-2 { background: #fbbf24; }
+  .sev-3 { background: #f87171; }
+
+  /* ── Empty states ─────────────────────────── */
+  .empty { text-align: center; padding: 48px 20px; color: var(--muted); }
+  .empty-icon { font-size: 3rem; margin-bottom: 12px; }
+  .empty-text { font-size: .95rem; }
+
+  /* ── Toast ────────────────────────────────── */
+  #toast {
+    position: fixed; bottom: 28px; right: 28px; z-index: 9999;
+    background: var(--surface); border: 1px solid #ffffff15;
+    padding: 14px 20px; border-radius: 12px; font-size: .9rem;
+    box-shadow: 0 8px 32px #00000060; opacity: 0; transform: translateY(10px);
+    transition: all .3s; pointer-events: none; max-width: 300px;
+  }
+  #toast.show { opacity: 1; transform: translateY(0); }
+  #toast.success { border-color: var(--brand); }
+  #toast.error { border-color: var(--danger); }
+
+  .loading { text-align: center; padding: 40px; color: var(--muted); font-size: 1.1rem; }
+</style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div id="auth-screen">
+  <div class="auth-box">
+    <div class="logo">Fit<span>Now</span></div>
+    <div class="tagline">Tu plataforma de actividades fitness</div>
+
+    <div class="tabs">
+      <div class="tab active" id="tab-login" onclick="switchTab('login')">Iniciar sesión</div>
+      <div class="tab" id="tab-register" onclick="switchTab('register')">Registrarse</div>
+    </div>
+
+    <!-- Login -->
+    <div id="form-login">
+      <div class="field"><label>Email</label><input id="l-email" type="email" placeholder="demo@fitnow.com" /></div>
+      <div class="field"><label>Contraseña</label><input id="l-pass" type="password" placeholder="••••••••" /></div>
+      <button class="btn btn-primary" onclick="doLogin()">Entrar</button>
+      <div class="err" id="l-err"></div>
+      <div style="text-align:center;margin-top:14px;font-size:.8rem;color:var(--muted)">
+        Demo: <strong>demo@fitnow.com</strong> / <strong>demo1234</strong>
+      </div>
+    </div>
+
+    <!-- Register -->
+    <div id="form-register" style="display:none">
+      <div class="field"><label>Nombre</label><input id="r-name" type="text" placeholder="Tu nombre" /></div>
+      <div class="field"><label>Email</label><input id="r-email" type="email" placeholder="tu@email.com" /></div>
+      <div class="field"><label>Contraseña</label><input id="r-pass" type="password" placeholder="Mínimo 6 caracteres" /></div>
+      <button class="btn btn-primary" onclick="doRegister()">Crear cuenta</button>
+      <div class="err" id="r-err"></div>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app-screen">
+  <nav class="nav">
+    <div class="nav-logo">Fit<span>Now</span></div>
+    <div class="nav-tabs">
+      <button class="nav-tab active" onclick="showPage('dashboard')">Dashboard</button>
+      <button class="nav-tab" onclick="showPage('activities')">Actividades</button>
+      <button class="nav-tab" onclick="showPage('enrollments')">Mis Clases</button>
+      <button class="nav-tab" onclick="showPage('routes')">Rutas</button>
+      <button class="nav-tab" onclick="showPage('hazards')">Peligros</button>
+    </div>
+    <div class="nav-user">
+      <div class="avatar" id="nav-avatar">?</div>
+      <div class="nav-name" id="nav-name">...</div>
+      <button class="btn-sm btn-outline" onclick="logout()">Salir</button>
+    </div>
+  </nav>
+
+  <!-- Dashboard -->
+  <div class="page active" id="page-dashboard">
+    <div class="stats-grid" id="stats-grid">
+      <div class="stat-card"><div class="stat-val" id="stat-activities">–</div><div class="stat-lbl">Actividades disponibles</div></div>
+      <div class="stat-card"><div class="stat-val" id="stat-enrollments">–</div><div class="stat-lbl">Mis inscripciones</div></div>
+      <div class="stat-card"><div class="stat-val" id="stat-routes">–</div><div class="stat-lbl">Rutas de running</div></div>
+      <div class="stat-card"><div class="stat-val" id="stat-hazards">–</div><div class="stat-lbl">Peligros reportados</div></div>
+    </div>
+    <div class="section-title">Próximas actividades</div>
+    <div class="activities-grid" id="dash-activities"><div class="loading">Cargando...</div></div>
+  </div>
+
+  <!-- Activities -->
+  <div class="page" id="page-activities">
+    <div class="section-title">Todas las actividades</div>
+    <div class="section-sub">Explorá y anotate en lo que más te guste</div>
+    <div class="activities-grid" id="all-activities"><div class="loading">Cargando...</div></div>
+  </div>
+
+  <!-- Enrollments -->
+  <div class="page" id="page-enrollments">
+    <div class="section-title">Mis inscripciones</div>
+    <div class="section-sub">Las clases y actividades en las que estás anotado</div>
+    <div class="enrollments-list" id="my-enrollments"><div class="loading">Cargando...</div></div>
+  </div>
+
+  <!-- Routes -->
+  <div class="page" id="page-routes">
+    <div class="section-title">Rutas de running</div>
+    <div class="section-sub">Recorridos disponibles en tu ciudad</div>
+    <div class="routes-list" id="routes-list"><div class="loading">Cargando...</div></div>
+  </div>
+
+  <!-- Hazards -->
+  <div class="page" id="page-hazards">
+    <div class="section-title">Reportar peligro</div>
+    <div class="hazard-form">
+      <div class="row">
+        <div class="field">
+          <label>Tipo de peligro</label>
+          <select id="h-type">
+            <option value="obstacle">🚧 Obstáculo</option>
+            <option value="pothole">🕳️ Bache / pozo</option>
+            <option value="poor_lighting">🌑 Mala iluminación</option>
+            <option value="traffic">🚗 Tráfico peligroso</option>
+            <option value="slippery">🧊 Superficie resbaladiza</option>
+            <option value="construction">🏗️ Obra en curso</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Severidad</label>
+          <select id="h-severity">
+            <option value="1">🟢 Leve</option>
+            <option value="2">🟡 Moderada</option>
+            <option value="3">🔴 Grave</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>Latitud</label>
+          <input id="h-lat" type="number" step="0.0001" placeholder="-34.5975" value="-34.5975" />
+        </div>
+        <div class="field">
+          <label>Longitud</label>
+          <input id="h-lng" type="number" step="0.0001" placeholder="-58.3772" value="-58.3772" />
+        </div>
+      </div>
+      <div class="field">
+        <label>Nota (opcional)</label>
+        <textarea id="h-note" placeholder="Describí el peligro..."></textarea>
+      </div>
+      <button class="btn btn-primary" style="width:auto;padding:10px 24px" onclick="reportHazard()">Reportar peligro</button>
+    </div>
+
+    <div class="section-title">Peligros reportados</div>
+    <div class="hazard-list" id="hazard-list"><div class="loading">Cargando...</div></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const API = '';
+let token = null;
+let currentUser = null;
+let enrolledIds = new Set();
+
+// ── Utils ─────────────────────────────────────────
+async function apiFetch(path, opts = {}) {
+  const res = await fetch(API + path, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}), ...opts.headers }
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json.error || res.statusText);
+  return json;
+}
+
+function toast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show ' + type;
+  setTimeout(() => t.className = '', 3000);
+}
+
+function fmt(isoStr) {
+  if (!isoStr) return '–';
+  const d = new Date(isoStr);
+  return d.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' }) +
+         ' · ' + d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+}
+
+function fmtPrice(p) {
+  if (!p || p === 0) return 'Gratis';
+  return '$' + Number(p).toLocaleString('es-AR');
+}
+
+function fmtDist(m) {
+  if (m >= 1000) return (m / 1000).toFixed(1) + ' km';
+  return m + ' m';
+}
+
+function fmtTime(s) {
+  if (!s) return '–';
+  const m = Math.round(s / 60);
+  if (m >= 60) return Math.floor(m / 60) + 'h ' + (m % 60) + 'min';
+  return m + ' min';
+}
+
+const HAZARD_LABELS = {
+  obstacle: '🚧 Obstáculo', pothole: '🕳️ Bache', poor_lighting: '🌑 Iluminación',
+  traffic: '🚗 Tráfico', slippery: '🧊 Resbaladizo', construction: '🏗️ Obra'
+};
+
+const MODALITY_BADGE = { gimnasio: 'badge-gym', outdoor: 'badge-outdoor', clase: 'badge-clase', torneo: 'badge-torneo' };
+const DIFFICULTY_BADGE = { alta: 'badge-alta', media: 'badge-media', baja: 'badge-baja' };
+
+// ── Auth ──────────────────────────────────────────
+function switchTab(t) {
+  document.getElementById('tab-login').classList.toggle('active', t === 'login');
+  document.getElementById('tab-register').classList.toggle('active', t === 'register');
+  document.getElementById('form-login').style.display = t === 'login' ? '' : 'none';
+  document.getElementById('form-register').style.display = t === 'register' ? '' : 'none';
+}
+
+async function doLogin() {
+  document.getElementById('l-err').textContent = '';
+  const email = document.getElementById('l-email').value;
+  const password = document.getElementById('l-pass').value;
+  try {
+    const data = await apiFetch('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+    token = data.token;
+    currentUser = data.user;
+    onLoggedIn();
+  } catch (e) {
+    document.getElementById('l-err').textContent = e.message;
+  }
+}
+
+async function doRegister() {
+  document.getElementById('r-err').textContent = '';
+  const name = document.getElementById('r-name').value;
+  const email = document.getElementById('r-email').value;
+  const password = document.getElementById('r-pass').value;
+  try {
+    const data = await apiFetch('/api/auth/register', { method: 'POST', body: JSON.stringify({ name, email, password }) });
+    token = data.token;
+    currentUser = data.user;
+    onLoggedIn();
+  } catch (e) {
+    document.getElementById('r-err').textContent = e.message;
+  }
+}
+
+function onLoggedIn() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'block';
+  document.getElementById('nav-name').textContent = currentUser.name;
+  document.getElementById('nav-avatar').textContent = currentUser.name[0].toUpperCase();
+  loadDashboard();
+}
+
+function logout() {
+  token = null; currentUser = null; enrolledIds.clear();
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('app-screen').style.display = 'none';
+}
+
+// ── Navigation ────────────────────────────────────
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  const tabs = document.querySelectorAll('.nav-tab');
+  const idx = ['dashboard', 'activities', 'enrollments', 'routes', 'hazards'].indexOf(name);
+  if (idx >= 0) tabs[idx].classList.add('active');
+
+  if (name === 'activities') loadActivities();
+  if (name === 'enrollments') loadEnrollments();
+  if (name === 'routes') loadRoutes();
+  if (name === 'hazards') loadHazards();
+}
+
+// ── Dashboard ─────────────────────────────────────
+async function loadDashboard() {
+  const [stats, acts, enroll] = await Promise.all([
+    apiFetch('/api/stats'),
+    apiFetch('/api/activities'),
+    apiFetch('/api/enrollments/mine')
+  ]);
+
+  enrolledIds = new Set(enroll.items.map(e => e.activity_id));
+  // Note: enrollments/mine doesn't return activity_id directly - let's also get from full enroll data
+
+  document.getElementById('stat-activities').textContent = stats.totalActivities;
+  document.getElementById('stat-enrollments').textContent = stats.myEnrollments;
+  document.getElementById('stat-routes').textContent = stats.totalRoutes;
+  document.getElementById('stat-hazards').textContent = stats.totalHazards;
+
+  document.getElementById('dash-activities').innerHTML = acts.items.slice(0, 3).map(renderActivityCard).join('');
+}
+
+// ── Activities ────────────────────────────────────
+async function loadActivities() {
+  const data = await apiFetch('/api/activities');
+  const enrollData = await apiFetch('/api/enrollments/mine');
+  // Re-build enrolled set based on activity titles (since we don't have activity_id in /mine response)
+  document.getElementById('all-activities').innerHTML = data.items.map(a => renderActivityCard(a)).join('');
+}
+
+function renderActivityCard(a) {
+  const mod = MODALITY_BADGE[a.modality] || '';
+  const diff = DIFFICULTY_BADGE[a.difficulty] || '';
+  const priceText = (!a.price || a.price == 0) ? '<span class="price free">Gratis</span>' : `<span class="price">$${Number(a.price).toLocaleString('es-AR')}</span>`;
+  return `
+  <div class="activity-card" id="act-card-${a.id}">
+    <div class="activity-header">
+      <div class="activity-title">${a.title}</div>
+      <div style="display:flex;gap:4px;flex-shrink:0">
+        <span class="badge ${mod}">${a.modality}</span>
+        <span class="badge ${diff}">${a.difficulty}</span>
+      </div>
+    </div>
+    <div class="activity-desc">${a.description || ''}</div>
+    <div class="activity-meta">
+      <div class="meta-row"><span class="icon">📍</span>${a.location || '–'}</div>
+      <div class="meta-row"><span class="icon">🗓️</span>${fmt(a.date_start)}</div>
+      <div class="meta-row"><span class="icon">👥</span>${a.seats_left} / ${a.capacity} lugares disponibles</div>
+    </div>
+    <div class="activity-footer">
+      ${priceText}
+      <button class="btn-enroll" onclick="enroll(${a.id}, this)">Anotarme</button>
+    </div>
+  </div>`;
+}
+
+async function enroll(activityId, btn) {
+  try {
+    btn.disabled = true;
+    await apiFetch('/api/enrollments', { method: 'POST', body: JSON.stringify({ activity_id: activityId }) });
+    btn.textContent = '✓ Inscripto';
+    btn.classList.add('enrolled');
+    toast('¡Te anotaste exitosamente!');
+    // Update seats display
+    const card = document.getElementById('act-card-' + activityId);
+    if (card) {
+      const seatsEl = card.querySelector('.meta-row:last-child');
+      if (seatsEl) {
+        const text = seatsEl.textContent;
+        const match = text.match(/(\d+) \/ (\d+)/);
+        if (match) {
+          const newLeft = parseInt(match[1]) - 1;
+          seatsEl.innerHTML = `<span class="icon">👥</span>${newLeft} / ${match[2]} lugares disponibles`;
+        }
+      }
+    }
+  } catch (e) {
+    btn.disabled = false;
+    toast(e.message === 'Already enrolled' ? 'Ya estás inscripto en esta actividad' : e.message, 'error');
+  }
+}
+
+// ── Enrollments ───────────────────────────────────
+async function loadEnrollments() {
+  const data = await apiFetch('/api/enrollments/mine');
+  const el = document.getElementById('my-enrollments');
+  if (!data.items.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">No estás inscripto en ninguna actividad todavía</div></div>`;
+    return;
+  }
+  el.innerHTML = data.items.map(e => `
+    <div class="enroll-card" id="enroll-${e.id}">
+      <div style="font-size:2rem">${{gimnasio:'🏋️',outdoor:'🌳',clase:'📚',torneo:'🏆'}[e.modality] || '⚡'}</div>
+      <div class="enroll-info">
+        <div class="enroll-title">${e.title}</div>
+        <div class="enroll-meta">📍 ${e.location || '–'} &nbsp;·&nbsp; 🗓️ ${fmt(e.date_start)} &nbsp;·&nbsp; ${e.price ? '$' + Number(e.price).toLocaleString('es-AR') : 'Gratis'}</div>
+      </div>
+      <button class="btn-cancel" onclick="cancelEnroll(${e.id})">Cancelar</button>
+    </div>
+  `).join('');
+}
+
+async function cancelEnroll(id) {
+  try {
+    await apiFetch('/api/enrollments/' + id, { method: 'DELETE' });
+    document.getElementById('enroll-' + id)?.remove();
+    toast('Inscripción cancelada');
+    // Refresh stats
+    const stats = await apiFetch('/api/stats');
+    document.getElementById('stat-enrollments').textContent = stats.myEnrollments;
+    document.getElementById('stat-hazards').textContent = stats.totalHazards;
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+}
+
+// ── Routes ────────────────────────────────────────
+async function loadRoutes() {
+  const data = await apiFetch('/api/run/routes');
+  const el = document.getElementById('routes-list');
+  if (!data.items.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">🏃</div><div class="empty-text">No hay rutas disponibles</div></div>`;
+    return;
+  }
+  el.innerHTML = data.items.map(r => `
+    <div class="route-card">
+      <div class="route-icon">🗺️</div>
+      <div class="route-info">
+        <div class="route-title">${r.title}</div>
+        <div class="route-meta">
+          <div class="route-stat">📍 <span>${r.city || '–'}</span></div>
+          <div class="route-stat">📏 <strong>${fmtDist(r.distance_m)}</strong></div>
+          <div class="route-stat">⏱️ <strong>${fmtTime(r.duration_s)}</strong></div>
+          <div class="route-stat">⛰️ <strong>+${r.elevation_up_m}m</strong></div>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── Hazards ───────────────────────────────────────
+async function loadHazards() {
+  const data = await apiFetch('/api/hazards/near?lat=-34.59&lng=-58.38');
+  const el = document.getElementById('hazard-list');
+  if (!data.items.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">No hay peligros reportados</div></div>`;
+    return;
+  }
+  el.innerHTML = data.items.map(h => `
+    <div class="hazard-card">
+      <div class="hazard-icon">${{obstacle:'🚧',pothole:'🕳️',poor_lighting:'🌑',traffic:'🚗',slippery:'🧊',construction:'🏗️'}[h.type] || '⚠️'}</div>
+      <div class="hazard-info">
+        <div class="hazard-title">${HAZARD_LABELS[h.type] || h.type}</div>
+        <div class="hazard-meta">${h.note || 'Sin descripción'} &nbsp;·&nbsp; Lat ${Number(h.lat).toFixed(4)}, Lng ${Number(h.lng).toFixed(4)}</div>
+      </div>
+      <div class="severity-dot sev-${h.severity}" title="Severidad ${h.severity}"></div>
+    </div>
+  `).join('');
+}
+
+async function reportHazard() {
+  const type = document.getElementById('h-type').value;
+  const severity = document.getElementById('h-severity').value;
+  const lat = parseFloat(document.getElementById('h-lat').value);
+  const lng = parseFloat(document.getElementById('h-lng').value);
+  const note = document.getElementById('h-note').value;
+  try {
+    await apiFetch('/api/hazards', { method: 'POST', body: JSON.stringify({ type, severity: Number(severity), lat, lng, note: note || null }) });
+    toast('Peligro reportado. ¡Gracias!');
+    document.getElementById('h-note').value = '';
+    loadHazards();
+    const stats = await apiFetch('/api/stats');
+    document.getElementById('stat-hazards').textContent = stats.totalHazards;
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+}
+
+// Enter key on login
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('auth-screen').style.display !== 'none') {
+    const loginVisible = document.getElementById('form-login').style.display !== 'none';
+    if (loginVisible) doLogin(); else doRegister();
+  }
+});
+</script>
+</body>
+</html>
