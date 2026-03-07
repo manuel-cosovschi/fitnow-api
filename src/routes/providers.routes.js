@@ -1,26 +1,21 @@
 // src/routes/providers.routes.js
 import { Router } from 'express';
-import { pool } from '../db.js';
+import { requireAuth } from '../middleware/auth.js';
+import { requireRole } from '../middleware/roles.middleware.js';
+import { validateBody } from '../middleware/validate.js';
+import { createProviderSchema, updateProviderSchema, setHoursSchema, addServiceSchema } from '../schemas/provider.schemas.js';
+import * as ctrl from '../controllers/providers.controller.js';
 
 const router = Router();
 
-/** GET /api/providers/:id/sports */
-router.get('/providers/:id/sports', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const [rows] = await pool.query(
-      `SELECT s.id, s.name
-         FROM provider_sports ps
-         JOIN sports s ON s.id = ps.sport_id
-        WHERE ps.provider_id = ?
-        ORDER BY s.name ASC`, [id]
-    );
-    return res.json({ items: rows });
-  } catch (e) {
-    console.error('list provider sports error:', e);
-    return res.status(500).json({ error: 'Server error' });
-  }
-});
+router.get  ('/',                                                                                              ctrl.list);
+router.get  ('/:id',                                                                                           ctrl.getById);
+router.post ('/', requireAuth, requireRole('admin'), validateBody(createProviderSchema),                        ctrl.create);
+router.patch('/:id', requireAuth, requireRole('admin','provider_admin'), validateBody(updateProviderSchema),    ctrl.update);
+router.post ('/:id/activate', requireAuth, requireRole('admin'),                                               ctrl.activate);
+router.post ('/:id/suspend',  requireAuth, requireRole('admin'),                                               ctrl.suspend);
+router.put  ('/:id/hours', requireAuth, requireRole('admin','provider_admin'), validateBody(setHoursSchema), ctrl.setHours);
+router.post ('/:id/services', requireAuth, requireRole('admin','provider_admin'), validateBody(addServiceSchema), ctrl.addService);
+router.delete('/:id/services/:serviceId', requireAuth, requireRole('admin','provider_admin'),                  ctrl.removeService);
 
 export default router;
-
