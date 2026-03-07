@@ -19,6 +19,7 @@ export function requireAuth(req, res, next) {
       email: payload.email || null,
       name: payload.name || null,
       role: payload.role || 'user',
+      provider_id: payload.provider_id ?? null,
     };
     return next();
   } catch (e) {
@@ -44,6 +45,7 @@ export function optionalAuth(req, _res, next) {
         email: payload.email || null,
         name: payload.name || null,
         role: payload.role || 'user',
+        provider_id: payload.provider_id ?? null,
       };
     }
   } catch (_) {}
