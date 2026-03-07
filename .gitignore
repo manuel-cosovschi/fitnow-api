@@ -3,7 +3,13 @@
 .AppleDouble
 .LSOverride
 
+# --- Environment files
+.env
+.env.local
+.env.*.local
+
 # --- Node/Backend
+node_modules/
 backend/node_modules/
 backend/.env
 backend/.env.*.local
