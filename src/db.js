@@ -3,14 +3,13 @@ import mysql from 'mysql2/promise';
 import 'dotenv/config';
 
 // Variables de entorno con defaults seguros
-const {
-  DB_HOST = '127.0.0.1',
-  DB_USER = 'root',
-  DB_PASSWORD = '',
-  DB_NAME = 'fitnow',
-  DB_PORT = '3306',
-  DB_CONNECTION_LIMIT = '10',
-} = process.env;
+// Soporta tanto DB_* (convención propia) como MYSQL* (Railway plugin)
+const DB_HOST            = process.env.DB_HOST     ?? process.env.MYSQLHOST     ?? '127.0.0.1';
+const DB_PORT            = process.env.DB_PORT     ?? process.env.MYSQLPORT     ?? '3306';
+const DB_USER            = process.env.DB_USER     ?? process.env.MYSQLUSER     ?? 'root';
+const DB_PASSWORD        = process.env.DB_PASSWORD ?? process.env.MYSQLPASSWORD ?? '';
+const DB_NAME            = process.env.DB_NAME     ?? process.env.MYSQLDATABASE ?? 'fitnow';
+const DB_CONNECTION_LIMIT = process.env.DB_CONNECTION_LIMIT ?? '10';
 
 /**
  * Pool de conexiones global
