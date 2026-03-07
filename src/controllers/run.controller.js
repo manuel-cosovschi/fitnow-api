@@ -1,5 +1,7 @@
 // src/controllers/run.controller.js
 import * as runService from '../services/run.service.js';
+import { generateRoutes } from '../services/routeGenerator.service.js';
+import { Errors } from '../utils/errors.js';
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 export async function listRoutes(req, res, next) {
@@ -11,6 +13,33 @@ export async function listRoutes(req, res, next) {
 export async function getRoute(req, res, next) {
   try {
     res.json(await runService.getRoute(Number(req.params.id)));
+  } catch (err) { next(err); }
+}
+
+/**
+ * POST /run/routes
+ * - If body contains origin_lat/origin_lng/distance_m → generate routes dynamically (any authenticated user)
+ * - Otherwise → create/store a route in DB (admin or provider_admin only)
+ */
+export async function routesPost(req, res, next) {
+  try {
+    const { origin_lat, origin_lng, distance_m } = req.body;
+
+    if (origin_lat !== undefined && origin_lng !== undefined && distance_m !== undefined) {
+      const result = await generateRoutes({
+        origin_lat: Number(origin_lat),
+        origin_lng: Number(origin_lng),
+        distance_m: Number(distance_m),
+      });
+      return res.json(result);
+    }
+
+    // Route creation: restricted to admin / provider_admin
+    if (!['admin', 'provider_admin'].includes(req.user?.role)) {
+      return next(Errors.forbidden('Se requiere rol admin o provider_admin.'));
+    }
+    const route = await runService.createRoute(req.body, req.user);
+    return res.status(201).json(route);
   } catch (err) { next(err); }
 }
 
