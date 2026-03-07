@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
   email        VARCHAR(190)  UNIQUE,
   password_hash VARCHAR(255),
   role         VARCHAR(20)   NOT NULL DEFAULT 'user',
+  provider_id  INT           NULL,
   provider     VARCHAR(20)   NOT NULL DEFAULT 'email',
   apple_sub    VARCHAR(200)  NULL,
   google_sub   VARCHAR(200)  NULL,
@@ -72,7 +73,6 @@ CREATE TABLE IF NOT EXISTS enrollments (
   end_at      DATETIME      NULL,
   price_paid  DECIMAL(10,2) NULL,
   created_at  TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE KEY uniq_user_session (user_id, session_id),
   CONSTRAINT fk_en_user     FOREIGN KEY (user_id)     REFERENCES users(id)              ON DELETE CASCADE,
   CONSTRAINT fk_en_activity FOREIGN KEY (activity_id) REFERENCES activities(id)         ON DELETE CASCADE,
   CONSTRAINT fk_en_session  FOREIGN KEY (session_id)  REFERENCES activity_sessions(id)  ON DELETE CASCADE

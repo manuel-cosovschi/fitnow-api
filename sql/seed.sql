@@ -13,10 +13,3 @@ INSERT INTO activities (title, description, modality, difficulty, location, pric
   DATE_ADD(DATE_ADD(NOW(), INTERVAL 4 DAY), INTERVAL 1 HOUR),
   12, 12);
 
-SELECT CONCAT(
-  "UPDATE activities SET date_start='", date_start,
-  "', date_end='", date_end,
-  "' WHERE id=", id, ";"
-) AS upd
-FROM activities
-ORDER BY id;

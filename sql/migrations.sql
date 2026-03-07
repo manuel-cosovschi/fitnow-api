@@ -136,6 +136,8 @@ ALTER TABLE activities ADD INDEX idx_act_provider_id (provider_id);
 ALTER TABLE activities ADD INDEX idx_act_sport_id (sport_id);
 ALTER TABLE activities ADD INDEX idx_act_status (status);
 ALTER TABLE activities ADD INDEX idx_act_date_start (date_start);
+ALTER TABLE activities ADD CONSTRAINT fk_act_provider FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE SET NULL;
+ALTER TABLE activities ADD CONSTRAINT fk_act_sport FOREIGN KEY (sport_id) REFERENCES sports(id) ON DELETE SET NULL;
 
 -- ─────────────────────────────────────────────
 -- 8. ALTER RUN_ROUTES — columnas faltantes
@@ -151,6 +153,7 @@ ALTER TABLE run_routes ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ALTER TABLE run_routes ADD INDEX idx_rr_center (center_lat, center_lng);
 ALTER TABLE run_routes ADD INDEX idx_rr_status (status);
 ALTER TABLE run_routes ADD INDEX idx_rr_surface (surface);
+ALTER TABLE run_routes ADD CONSTRAINT fk_rr_provider FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE SET NULL;
 
 -- ─────────────────────────────────────────────
 -- 9. ALTER RUN_FEEDBACK — columnas faltantes
@@ -199,7 +202,13 @@ ALTER TABLE enrollments ADD INDEX idx_enr_session_id (session_id);
 ALTER TABLE enrollments ADD INDEX idx_enr_status (status);
 
 -- ─────────────────────────────────────────────
--- 13. PASSWORD RESET TOKENS
+-- 13. ALTER USERS — provider_id para provider_admin
+-- ─────────────────────────────────────────────
+ALTER TABLE users ADD COLUMN provider_id INT NULL AFTER role;
+ALTER TABLE users ADD INDEX idx_users_provider_id (provider_id);
+
+-- ─────────────────────────────────────────────
+-- 14. PASSWORD RESET TOKENS
 -- ─────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS password_reset_tokens (
   id         INT AUTO_INCREMENT PRIMARY KEY,
