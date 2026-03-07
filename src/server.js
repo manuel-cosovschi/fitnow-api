@@ -6,17 +6,20 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import os from 'os';
 
+import { validateEnv } from './utils/env.js';
+import logger from './utils/logger.js';
+
+// Validate required env vars before loading anything else
+validateEnv();
+
 import app from './app.js';
 import { pool } from './db.js';
 
-// __dirname en ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
-// Inyectar pool al app (para req.app.get('db'))
 app.set('db', pool);
 
-// Estáticos: /uploads
 import express from 'express';
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
@@ -36,29 +39,25 @@ function getLocalIp() {
 
 async function bootstrap() {
   try {
-    // Probar DB
     await pool.query('SELECT 1 + 1 AS ok');
-    console.log('✅ MySQL pool conectado.');
+    logger.info('MySQL pool conectado.');
 
     const ip = getLocalIp();
     const server = app.listen(PORT, HOST, () => {
-      console.log(`🚀 FitNow API escuchando en http://${HOST}:${PORT}`);
-      console.log(`🔌 Acceso LAN: http://${ip}:${PORT}`);
-      if (PUBLIC_BASE_URL) console.log(`🌍 Público (ngrok/dom): ${PUBLIC_BASE_URL}`);
+      logger.info(`FitNow API escuchando en http://${HOST}:${PORT}`);
+      logger.info(`Acceso LAN: http://${ip}:${PORT}`);
+      if (PUBLIC_BASE_URL) logger.info(`Público: ${PUBLIC_BASE_URL}`);
     });
 
-    server.on('error', (err) => {
-      console.error('Server error:', err);
-    });
+    server.on('error', (err) => logger.error('Server error:', err));
 
-    // Cierre limpio
     process.on('SIGINT', async () => {
-      console.log('\n🛑 Cerrando servidor...');
-      try { await pool.end(); console.log('🔌 Pool MySQL cerrado.'); } catch {}
+      logger.info('Cerrando servidor...');
+      try { await pool.end(); logger.info('Pool MySQL cerrado.'); } catch {}
       process.exit(0);
     });
   } catch (e) {
-    console.error('❌ Error al iniciar servidor:', e);
+    logger.error('Error al iniciar servidor:', e);
     process.exit(1);
   }
 }

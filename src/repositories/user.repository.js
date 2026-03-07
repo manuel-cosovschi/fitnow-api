@@ -35,3 +35,25 @@ export async function update(id, fields) {
 export async function updatePassword(id, password_hash) {
   await query(`UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [password_hash, id]);
 }
+
+// ─── Password reset tokens ────────────────────────────────────────────────────
+
+export async function createResetToken(userId, tokenHash, expiresAt) {
+  // Invalidate any previous unused tokens for this user
+  await query(`DELETE FROM password_reset_tokens WHERE user_id = ? AND used_at IS NULL`, [userId]);
+  await query(
+    `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)`,
+    [userId, tokenHash, expiresAt]
+  );
+}
+
+export async function findResetToken(tokenHash) {
+  return queryOne(
+    `SELECT * FROM password_reset_tokens WHERE token_hash = ? LIMIT 1`,
+    [tokenHash]
+  );
+}
+
+export async function markResetTokenUsed(id) {
+  await query(`UPDATE password_reset_tokens SET used_at = NOW() WHERE id = ?`, [id]);
+}

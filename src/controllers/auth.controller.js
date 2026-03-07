@@ -35,3 +35,18 @@ export async function changePassword(req, res, next) {
     res.json({ status: 'ok' });
   } catch (err) { next(err); }
 }
+
+export async function forgotPassword(req, res, next) {
+  try {
+    await authService.forgotPassword(req.body.email);
+    // Always return 200 regardless of whether email exists (prevent enumeration)
+    res.json({ status: 'ok', message: 'Si el email está registrado, recibirás un enlace en breve.' });
+  } catch (err) { next(err); }
+}
+
+export async function resetPassword(req, res, next) {
+  try {
+    await authService.resetPassword(req.body.token, req.body.new_password);
+    res.json({ status: 'ok', message: 'Contraseña restablecida correctamente.' });
+  } catch (err) { next(err); }
+}

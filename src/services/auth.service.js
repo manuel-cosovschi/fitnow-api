@@ -1,8 +1,10 @@
 // src/services/auth.service.js
+import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import jwt    from 'jsonwebtoken';
 import * as userRepo from '../repositories/user.repository.js';
 import { Errors } from '../utils/errors.js';
+import * as mailer from '../utils/mailer.js';
 
 const SALT_ROUNDS = 12;
 const JWT_SECRET  = () => process.env.JWT_SECRET || 'dev_secret_change_me';
@@ -56,6 +58,31 @@ export async function updateMe(userId, fields) {
     fields.email = fields.email.toLowerCase().trim();
   }
   return userRepo.update(userId, fields);
+}
+
+export async function forgotPassword(email) {
+  const user = await userRepo.findByEmail(email.toLowerCase().trim());
+  // Always resolve without error to prevent email enumeration
+  if (!user) return;
+
+  const token    = crypto.randomBytes(32).toString('hex');
+  const hash     = crypto.createHash('sha256').update(token).digest('hex');
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+  await userRepo.createResetToken(user.id, hash, expiresAt);
+  await mailer.sendPasswordReset(user.email, token);
+}
+
+export async function resetPassword(token, newPassword) {
+  const hash   = crypto.createHash('sha256').update(token).digest('hex');
+  const record = await userRepo.findResetToken(hash);
+
+  if (!record || record.used_at || new Date(record.expires_at) < new Date()) {
+    throw Errors.badRequest('Token inválido o expirado.');
+  }
+
+  await userRepo.updatePassword(record.user_id, await bcrypt.hash(newPassword, SALT_ROUNDS));
+  await userRepo.markResetTokenUsed(record.id);
 }
 
 export async function changePassword(userId, { current_password, new_password }) {

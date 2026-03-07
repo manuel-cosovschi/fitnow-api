@@ -1,5 +1,6 @@
 // src/middleware/error.middleware.js
 import { AppError } from '../utils/errors.js';
+import logger from '../utils/logger.js';
 
 /**
  * Middleware global de manejo de errores.
@@ -21,7 +22,7 @@ export function errorMiddleware(err, req, res, _next) {
 
   // Error inesperado — no exponer detalles en producción
   const isDev = process.env.NODE_ENV !== 'production';
-  console.error('[ERROR]', req.method, req.url, err);
+  logger.error(`${req.method} ${req.url}`, { message: err.message, stack: err.stack });
 
   return res.status(500).json({
     error: {

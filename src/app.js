@@ -3,7 +3,9 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import compression from 'compression';
 import rateLimit from 'express-rate-limit';
+import logger from './utils/logger.js';
 import { errorMiddleware } from './middleware/error.middleware.js';
 import authRoutes      from './routes/auth.routes.js';
 import activitiesRoutes from './routes/activities.routes.js';
@@ -21,8 +23,13 @@ const app = express();
 // ── Security headers ──────────────────────────────────────────────────────────
 app.use(helmet());
 
+// ── Response compression ──────────────────────────────────────────────────────
+app.use(compression());
+
 // ── HTTP request logging ──────────────────────────────────────────────────────
-app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev', {
+  stream: { write: (msg) => logger.http(msg.trim()) },
+}));
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
@@ -43,7 +50,6 @@ app.use(cors({
 }));
 
 // ── Rate limiting ─────────────────────────────────────────────────────────────
-// Strict limiter for auth endpoints (brute-force protection)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 20,
@@ -52,9 +58,8 @@ const authLimiter = rateLimit({
   message: { code: 'RATE_LIMIT', message: 'Demasiados intentos. Intentá en 15 minutos.' },
 });
 
-// General API limiter
 const apiLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
+  windowMs: 60 * 1000,
   max: 120,
   standardHeaders: true,
   legacyHeaders: false,
@@ -65,7 +70,7 @@ app.use('/api/', apiLimiter);
 app.use('/api/auth', authLimiter);
 
 // ── Body parsing ───────────────────────────────────────────────────────────────
-app.use(express.json({ limit: '2mb' })); // allow batch telemetry payloads
+app.use(express.json({ limit: '2mb' }));
 
 // ── Health check ───────────────────────────────────────────────────────────────
 app.get('/api/health', (_req, res) => res.json({ status: 'ok', ts: new Date().toISOString() }));
