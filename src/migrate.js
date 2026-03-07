@@ -20,13 +20,14 @@ function isIgnorable(err) {
   return IGNORABLE_CODES.has(err.code) || IGNORABLE_ERRNO.has(err.errno);
 }
 
-// Divide un archivo SQL en statements individuales (separa por ; al final de línea).
-// Suficientemente robusto para nuestros archivos de migración.
+// Divide un archivo SQL en statements individuales.
+// Elimina comentarios -- primero para que no interfieran con el filtrado.
 function splitStatements(sql) {
-  return sql
-    .split(/;[ \t]*(?:\r?\n|$)/)
+  const noComments = sql.replace(/--[^\n]*/g, '');
+  return noComments
+    .split(';')
     .map(s => s.trim())
-    .filter(s => s.length > 0 && !s.startsWith('--') && !/^--/.test(s.replace(/[^-\n]*/m, '')));
+    .filter(s => s.length > 0);
 }
 
 export async function runMigrations() {

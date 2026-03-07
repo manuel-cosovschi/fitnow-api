@@ -60,16 +60,16 @@ export async function recommendRoutes(queryParams) {
   // Normalize each metric and compute weighted score
   const maxDist    = Math.max(...routes.map(r => r.distance_m));
   const maxElev    = Math.max(...routes.map(r => r.elevation_up_m ?? 0));
-  const maxHzCnt   = Math.max(...routes.map(r => r.hz_count ?? 0));
-  const maxHzSev   = Math.max(...routes.map(r => r.avg_hz_sev ?? 0));
+  const maxHzCnt   = Math.max(...routes.map(r => r.hazard_count ?? 0));
+  const maxHzSev   = Math.max(...routes.map(r => r.avg_hazard_severity ?? 0));
   const maxFb      = Math.max(...routes.map(r => r.avg_rating ?? 0));
   const maxPop     = Math.max(...routes.map(r => r.feedback_count ?? 0));
 
   const scored = routes.map(r => {
     const s_distance   = normalize(r.distance_m,          0, maxDist,  true);
     const s_elev       = normalize(r.elevation_up_m ?? 0, 0, maxElev,  true);
-    const s_hz_cnt     = normalize(r.hz_count ?? 0,       0, maxHzCnt, false); // fewer = better
-    const s_hz_sev     = normalize(r.avg_hz_sev ?? 0,     0, maxHzSev, false); // lower = better
+    const s_hz_cnt     = normalize(r.hazard_count ?? 0,       0, maxHzCnt, false); // fewer = better
+    const s_hz_sev     = normalize(r.avg_hazard_severity ?? 0, 0, maxHzSev, false); // lower = better
     const s_feedback   = normalize(r.avg_rating ?? 0,     0, maxFb,    true);
     const s_popularity = normalize(r.feedback_count ?? 0, 0, maxPop,   true);
 
