@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import jwt    from 'jsonwebtoken';
 import * as userRepo from '../repositories/user.repository.js';
+import * as provRepo from '../repositories/provider.repository.js';
 import { Errors } from '../utils/errors.js';
 import * as mailer from '../utils/mailer.js';
 
@@ -83,6 +84,33 @@ export async function resetPassword(token, newPassword) {
 
   await userRepo.updatePassword(record.user_id, await bcrypt.hash(newPassword, SALT_ROUNDS));
   await userRepo.markResetTokenUsed(record.id);
+}
+
+export async function registerProvider({ name, email, password, provider_name, provider_kind, provider_description, provider_address, provider_city, provider_phone, provider_lat, provider_lng }) {
+  if (!name?.trim())          throw Errors.badRequest('El nombre es requerido.');
+  if (!email?.trim())         throw Errors.badRequest('El email es requerido.');
+  if (!password || password.length < 6) throw Errors.badRequest('La contraseña debe tener al menos 6 caracteres.');
+  if (!provider_name?.trim()) throw Errors.badRequest('El nombre del proveedor es requerido.');
+
+  const existing = await userRepo.findByEmail(email.toLowerCase().trim());
+  if (existing) throw Errors.conflict('EMAIL_ALREADY_EXISTS', 'El email ya está registrado.');
+
+  const hash = await bcrypt.hash(password, SALT_ROUNDS);
+  const user = await userRepo.create({ name: name.trim(), email: email.toLowerCase().trim(), password_hash: hash, role: 'provider_admin' });
+
+  const provider = await provRepo.create({
+    name:        provider_name.trim(),
+    kind:        provider_kind ?? 'gym',
+    description: provider_description ?? null,
+    address:     provider_address ?? null,
+    city:        provider_city ?? null,
+    phone:       provider_phone ?? null,
+    lat:         provider_lat ?? null,
+    lng:         provider_lng ?? null,
+  });
+
+  const updatedUser = await userRepo.setRoleAndProvider(user.id, 'provider_admin', provider.id);
+  return { user: updatedUser, token: signToken(updatedUser), provider };
 }
 
 export async function changePassword(userId, { current_password, new_password }) {
