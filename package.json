@@ -5,28 +5,38 @@
   "main": "src/server.js",
   "type": "module",
   "scripts": {
-    "dev": "nodemon src/server.js",
-    "start": "node src/server.js"
+    "dev":        "nodemon src/server.js",
+    "start":      "node src/server.js",
+    "test":       "vitest run",
+    "test:watch": "vitest",
+    "coverage":   "vitest run --coverage"
   },
   "dependencies": {
     "@mapbox/polyline": "^1.2.1",
     "apple-signin-auth": "^2.0.0",
     "bcryptjs": "^2.4.3",
+    "compression": "^1.8.1",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^4.21.2",
+    "express-rate-limit": "^8.3.0",
     "google-auth-library": "^10.4.0",
     "googleapis": "^162.0.0",
     "haversine-distance": "^1.2.4",
+    "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
-    "knex": "^3.1.0",
     "morgan": "^1.10.1",
     "multer": "^2.0.2",
     "mysql2": "^3.15.2",
     "node-fetch": "^3.3.2",
-    "sqlite3": "^5.1.7"
+    "nodemailer": "^8.0.1",
+    "winston": "^3.19.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
-    "nodemon": "^3.1.4"
+    "@vitest/coverage-v8": "^4.0.18",
+    "nodemon": "^3.1.4",
+    "supertest": "^7.2.2",
+    "vitest": "^4.0.18"
   }
 }

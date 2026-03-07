@@ -17,6 +17,9 @@ const uploadDir  = path.join(__dirname, '..', '..', 'uploads');
 
 fs.mkdirSync(uploadDir, { recursive: true });
 
+const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+
 // Multer storage
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadDir),
@@ -27,10 +30,28 @@ const storage = multer.diskStorage({
   }
 });
 
-const upload = multer({ storage });
+function fileFilter(_req, file, cb) {
+  if (ALLOWED_MIME_TYPES.has(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(Object.assign(new Error('Tipo de archivo no permitido. Se aceptan: jpg, png, gif, webp.'), { status: 400 }));
+  }
+}
+
+const upload = multer({ storage, fileFilter, limits: { fileSize: MAX_FILE_SIZE } });
 
 // POST /api/files/photo  (campo: "photo")
-router.post('/photo', requireAuth, upload.single('photo'), async (req, res) => {
+router.post('/photo', requireAuth, (req, res, next) => {
+  upload.single('photo')(req, res, (err) => {
+    if (err) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ error: 'El archivo supera el límite de 5 MB.' });
+      }
+      return res.status(err.status ?? 400).json({ error: err.message });
+    }
+    next();
+  });
+}, async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file' });
 
@@ -38,7 +59,6 @@ router.post('/photo', requireAuth, upload.single('photo'), async (req, res) => {
     const base = process.env.PUBLIC_BASE_URL || `http://127.0.0.1:${process.env.PORT || 3000}`;
     const url  = `${base}/uploads/${req.file.filename}`;
 
-    // (Opcional) guardar en DB
     await pool.query(
       'UPDATE users SET photo_url=?, updated_at=NOW() WHERE id=?',
       [url, req.user.id]

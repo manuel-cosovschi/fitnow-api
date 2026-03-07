@@ -8,7 +8,7 @@ export function requireAuth(req, res, next) {
     const token = parts.length === 2 && /^Bearer$/i.test(parts[0]) ? parts[1] : null;
     if (!token) return res.status(401).json({ error: 'Missing token' });
 
-    const secret = process.env.JWT_SECRET || 'dev_secret_change_me';
+    const secret = process.env.JWT_SECRET;
     const payload = jwt.verify(token, secret);
 
     const userId = payload.id ?? payload.sub;
@@ -34,7 +34,7 @@ export function optionalAuth(req, _res, next) {
     const token = parts.length === 2 && /^Bearer$/i.test(parts[0]) ? parts[1] : null;
     if (!token) return next();
 
-    const secret = process.env.JWT_SECRET || 'dev_secret_change_me';
+    const secret = process.env.JWT_SECRET;
     const payload = jwt.verify(token, secret);
 
     const userId = payload.id ?? payload.sub;
