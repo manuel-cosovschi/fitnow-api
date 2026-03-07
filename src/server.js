@@ -14,6 +14,7 @@ validateEnv();
 
 import app from './app.js';
 import { pool } from './db.js';
+import { runMigrations } from './migrate.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -41,6 +42,8 @@ async function bootstrap() {
   try {
     await pool.query('SELECT 1 + 1 AS ok');
     logger.info('MySQL pool conectado.');
+
+    await runMigrations();
 
     const ip = getLocalIp();
     const server = app.listen(PORT, HOST, () => {
