@@ -50,3 +50,10 @@ export async function resetPassword(req, res, next) {
     res.json({ status: 'ok', message: 'Contraseña restablecida correctamente.' });
   } catch (err) { next(err); }
 }
+
+export async function registerProvider(req, res, next) {
+  try {
+    const result = await authService.registerProvider(req.body);
+    res.status(201).json(result);
+  } catch (err) { next(err); }
+}
