@@ -19,7 +19,8 @@ CREATE TABLE IF NOT EXISTS users (
   pref_goal_km FLOAT         NULL,
   pref_surface VARCHAR(50)   NULL,
   created_at   TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
-  updated_at   TIMESTAMP     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  updated_at   TIMESTAMP     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted_at   TIMESTAMP     NULL DEFAULT NULL
 );
 
 -- ─────────────────────────────────────────────
@@ -35,6 +36,8 @@ CREATE TABLE IF NOT EXISTS activities (
   price       DECIMAL(10,2) DEFAULT 0,
   date_start  DATETIME,
   date_end    DATETIME,
+  lat         DECIMAL(10,7) NULL,
+  lng         DECIMAL(10,7) NULL,
   capacity    INT           DEFAULT 20,
   seats_left  INT           DEFAULT 20,
   rules       JSON          NULL,
