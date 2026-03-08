@@ -21,6 +21,9 @@ import sessionsRoutes  from './routes/sessions.routes.js';
 
 const app = express();
 
+// ── Trust proxy (Railway / Render / etc. sit behind a load balancer) ──────────
+app.set('trust proxy', 1);
+
 // ── Security headers ──────────────────────────────────────────────────────────
 app.use(helmet());
 
