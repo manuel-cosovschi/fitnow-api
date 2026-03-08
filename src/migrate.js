@@ -12,9 +12,11 @@ const SQL_DIR   = path.join(__dirname, '..', 'sql');
 // Orden de ejecución: schema primero (tablas base), luego migrations (providers + ALTERs), luego seed
 const FILES = ['schema.sql', 'migrations.sql', 'seed.sql'];
 
-// Errores ignorables en ALTER TABLE: columna ya existe, índice ya existe
-const IGNORABLE_CODES = new Set(['ER_DUP_FIELDNAME', 'ER_DUP_KEYNAME', 'ER_DUP_ENTRY']);
-const IGNORABLE_ERRNO = new Set([1060, 1061, 1062]);
+// Errores ignorables en ALTER TABLE / CREATE TABLE:
+//   columna ya existe, índice ya existe, entrada duplicada,
+//   FK con el mismo nombre ya existe, tabla ya existe
+const IGNORABLE_CODES = new Set(['ER_DUP_FIELDNAME', 'ER_DUP_KEYNAME', 'ER_DUP_ENTRY', 'ER_FK_DUP_NAME', 'ER_TABLE_EXISTS_ERROR']);
+const IGNORABLE_ERRNO = new Set([1060, 1061, 1062, 1826, 1050]);
 
 function isIgnorable(err) {
   return IGNORABLE_CODES.has(err.code) || IGNORABLE_ERRNO.has(err.errno);
@@ -52,19 +54,15 @@ export async function runMigrations() {
 
       const sql = fs.readFileSync(filePath, 'utf8');
 
-      if (file === 'migrations.sql') {
-        // Ejecutar statement por statement para poder ignorar duplicados
-        const stmts = splitStatements(sql);
-        for (const stmt of stmts) {
-          try {
-            await conn.query(stmt);
-          } catch (err) {
-            if (isIgnorable(err)) continue;
-            throw err;
-          }
+      // Ejecutar statement por statement para poder ignorar duplicados en todos los archivos
+      const stmts = splitStatements(sql);
+      for (const stmt of stmts) {
+        try {
+          await conn.query(stmt);
+        } catch (err) {
+          if (isIgnorable(err)) continue;
+          throw err;
         }
-      } else {
-        await conn.query(sql);
       }
 
       console.log(`[migrate] ✓ ${file}`);
