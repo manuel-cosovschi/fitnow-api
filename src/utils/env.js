@@ -4,7 +4,7 @@
  * Throws on first failure so the process exits early with a clear message.
  */
 
-const REQUIRED = ['JWT_SECRET', 'DB_HOST', 'DB_USER', 'DB_NAME'];
+const REQUIRED = ['JWT_SECRET', 'DATABASE_URL'];
 
 const WEAK_SECRETS = new Set([
   'supersecret_dev_key_change_me',
