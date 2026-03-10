@@ -221,3 +221,12 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
   INDEX idx_prt_user_id (user_id),
   CONSTRAINT fk_prt_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ─────────────────────────────────────────────
+-- 15. FIX provider_sports FK
+-- Original schema.sql incorrectly referenced users(id) instead of providers(id).
+-- Drop the wrong FK and recreate pointing to providers.
+-- Error 1091 (ER_CANT_DROP_FIELD_OR_KEY) is ignored in migrate.js if already fixed.
+-- ─────────────────────────────────────────────
+ALTER TABLE provider_sports DROP FOREIGN KEY fk_ps_user;
+ALTER TABLE provider_sports ADD CONSTRAINT fk_ps_provider FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE CASCADE;
