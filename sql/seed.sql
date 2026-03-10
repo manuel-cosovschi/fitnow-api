@@ -1,15 +1,16 @@
--- Datos de ejemplo con fechas futuras y cupos
-INSERT INTO activities (title, description, modality, difficulty, location, price, date_start, date_end, capacity, seats_left) VALUES
-('Funcional en Parque', 'Clase grupal funcional', 'outdoor', 'media', 'Parque Centenario', 3000,
-  DATE_ADD(NOW(), INTERVAL 2 DAY),
-  DATE_ADD(DATE_ADD(NOW(), INTERVAL 2 DAY), INTERVAL 1 HOUR),
-  20, 20),
-('Cross Training', 'WOD de intensidad media', 'gimnasio', 'alta', 'Caja Palermo', 4500,
-  DATE_ADD(NOW(), INTERVAL 3 DAY),
-  DATE_ADD(DATE_ADD(NOW(), INTERVAL 3 DAY), INTERVAL 1 HOUR),
-  15, 15),
-('Yoga Vinyasa', 'Clase para todos los niveles', 'clase', 'baja', 'Estudio Núñez', 3500,
-  DATE_ADD(NOW(), INTERVAL 4 DAY),
-  DATE_ADD(DATE_ADD(NOW(), INTERVAL 4 DAY), INTERVAL 1 HOUR),
-  12, 12);
+-- FitNow — Seeds iniciales (PostgreSQL / Supabase)
+-- Idempotentes: ON CONFLICT DO NOTHING
 
+INSERT INTO sports (name) VALUES
+  ('Running'), ('CrossFit'), ('Yoga'), ('Ciclismo'),
+  ('Natación'), ('Pilates'), ('Fútbol'), ('Pádel'),
+  ('HIIT'), ('Funcional')
+ON CONFLICT (name) DO NOTHING;
+
+INSERT INTO ai_weights (version, label, w_distance, w_elev, w_hz_cnt, w_hz_sev, w_feedback, w_popularity, is_active)
+SELECT 'v1.0', 'Pesos heurísticos iniciales', 0.20, 0.15, 0.25, 0.25, 0.10, 0.05, TRUE
+WHERE NOT EXISTS (SELECT 1 FROM ai_weights WHERE is_active = TRUE);
+
+INSERT INTO news (icon, title, subtitle, color, starts_at, ends_at)
+SELECT '🏃', '¡Bienvenido a FitNow!', 'Explorá actividades y rutas de running cerca tuyo.', '#00C27C', NOW(), NOW() + INTERVAL '60 days'
+WHERE NOT EXISTS (SELECT 1 FROM news LIMIT 1);
