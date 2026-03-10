@@ -113,7 +113,21 @@ export async function pushTelemetry(sessionId, userId, points) {
   if (session.status !== 'active') throw Errors.badRequest('La sesión no está activa.');
   if (!Array.isArray(points) || points.length === 0) throw Errors.badRequest('Se requiere al menos un punto.');
 
-  await runRepo.insertTelemetryPoints(sessionId, points);
+  // Normalize client-friendly field names to repo-aligned names before persisting
+  const mapped = points.map((p) => ({
+    ts_ms:       typeof p.ts_ms === 'number' ? p.ts_ms
+                   : p.recorded_at ? new Date(p.recorded_at).getTime() : Date.now(),
+    lat:         p.lat,
+    lng:         p.lng,
+    elevation_m: p.elevation_m ?? p.altitude   ?? null,
+    speed_mps:   p.speed_mps  ?? p.speed       ?? null,
+    pace_s:      p.pace_s     ?? null,
+    hr_bpm:      p.hr_bpm     ?? p.heart_rate  ?? null,
+    off_route:   p.off_route  ?? false,
+    accuracy_m:  p.accuracy_m ?? null,
+  }));
+
+  await runRepo.insertTelemetryPoints(sessionId, mapped);
   return { saved: points.length };
 }
 
@@ -123,7 +137,20 @@ export async function finishSession(sessionId, userId, stats) {
   if (session.user_id !== userId) throw Errors.forbidden('No podés finalizar esta sesión.');
   if (session.status !== 'active') throw Errors.badRequest('La sesión ya fue finalizada.');
 
-  return runRepo.finishSession(sessionId, stats);
+  // Normalize client-friendly field names to repo-aligned names
+  const summary = {
+    finished_at:     stats.finished_at    ?? null,
+    duration_s:      stats.duration_s     ?? null,
+    distance_m:      stats.distance_m     ?? null,
+    avg_pace_s:      stats.avg_pace_s     ?? stats.avg_pace ?? null,
+    avg_speed_mps:   stats.avg_speed_mps  ?? null,
+    avg_hr_bpm:      stats.avg_hr_bpm     ?? null,
+    deviates_count:  stats.deviates_count ?? 0,
+    max_elevation_m: stats.max_elevation_m ?? null,
+    min_elevation_m: stats.min_elevation_m ?? null,
+  };
+
+  return runRepo.finishSession(sessionId, summary);
 }
 
 export async function abandonSession(sessionId, userId) {

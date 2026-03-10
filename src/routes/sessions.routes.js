@@ -108,9 +108,9 @@ router.post('/sessions/:sid/book', requireAuth, async (req, res, next) => {
       }
     }
 
-    // 4) Evitar doble booking
+    // 4) Evitar doble booking (excluir cancelados para permitir re-inscripción)
     const [dup] = await conn.query(
-      `SELECT id FROM enrollments WHERE user_id = ? AND session_id = ? LIMIT 1`,
+      `SELECT id FROM enrollments WHERE user_id = ? AND session_id = ? AND status != 'cancelled' LIMIT 1`,
       [req.user.id, sid]
     );
     if (dup.length) {

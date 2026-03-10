@@ -14,9 +14,10 @@ const FILES = ['schema.sql', 'migrations.sql', 'seed.sql'];
 
 // Errores ignorables en ALTER TABLE / CREATE TABLE:
 //   columna ya existe, índice ya existe, entrada duplicada,
-//   FK con el mismo nombre ya existe, tabla ya existe
-const IGNORABLE_CODES = new Set(['ER_DUP_FIELDNAME', 'ER_DUP_KEYNAME', 'ER_DUP_ENTRY', 'ER_FK_DUP_NAME', 'ER_TABLE_EXISTS_ERROR']);
-const IGNORABLE_ERRNO = new Set([1060, 1061, 1062, 1826, 1050]);
+//   FK con el mismo nombre ya existe, tabla ya existe,
+//   clave/FK a eliminar no existe (1091 = ER_CANT_DROP_FIELD_OR_KEY)
+const IGNORABLE_CODES = new Set(['ER_DUP_FIELDNAME', 'ER_DUP_KEYNAME', 'ER_DUP_ENTRY', 'ER_FK_DUP_NAME', 'ER_TABLE_EXISTS_ERROR', 'ER_CANT_DROP_FIELD_OR_KEY']);
+const IGNORABLE_ERRNO = new Set([1060, 1061, 1062, 1826, 1050, 1091]);
 
 function isIgnorable(err) {
   return IGNORABLE_CODES.has(err.code) || IGNORABLE_ERRNO.has(err.errno);
