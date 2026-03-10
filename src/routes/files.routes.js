@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 
 import { requireAuth } from '../middleware/auth.js';
 import { pool } from '../db.js';
+import logger from '../utils/logger.js';
 
 const router = Router();
 
@@ -66,7 +67,7 @@ router.post('/photo', requireAuth, (req, res, next) => {
 
     return res.json({ url });
   } catch (e) {
-    console.error('upload photo error:', e);
+    logger.error('upload photo error:', e);
     return res.status(500).json({ error: 'Upload failed' });
   }
 });

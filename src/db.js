@@ -36,7 +36,10 @@ export const pool = mysql.createPool({
 
 // Log de conexión inicial (solo en desarrollo)
 if (process.env.NODE_ENV !== 'production') {
-  console.log(`✅ MySQL pool conectado a ${DB_NAME}@${DB_HOST}:${DB_PORT} (${DB_USER})`);
+  // Use dynamic import to avoid circular dependency issues
+  import('./utils/logger.js').then(({ default: logger }) => {
+    logger.info(`MySQL pool conectado a ${DB_NAME}@${DB_HOST}:${DB_PORT} (${DB_USER})`);
+  });
 }
 
 export default pool;
