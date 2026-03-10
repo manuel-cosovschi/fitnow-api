@@ -34,10 +34,17 @@ export async function list(queryParams) {
 }
 
 export async function getById(id) {
-  const activity = await actRepo.findById(id);
-  if (!activity) throw Errors.notFound('Actividad no encontrada.');
+  const raw = await actRepo.findById(id);
+  if (!raw) throw Errors.notFound('Actividad no encontrada.');
   const sessions = await actRepo.findSessions(id);
-  return { ...activity, sessions };
+
+  // Separate provider into a top-level field so iOS clients can decode
+  // { activity: {...}, provider: {...} } consistently across all views.
+  const { provider, sport, ...activityFields } = raw;
+  return {
+    activity: { ...activityFields, sport, sessions },
+    provider: provider ?? null,
+  };
 }
 
 export async function create(fields, requestingUser) {
