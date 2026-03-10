@@ -34,18 +34,28 @@ export async function list(queryParams) {
 }
 
 export async function getById(id) {
-  const activity = await actRepo.findById(id);
-  if (!activity) throw Errors.notFound('Actividad no encontrada.');
+  const raw = await actRepo.findById(id);
+  if (!raw) throw Errors.notFound('Actividad no encontrada.');
   const sessions = await actRepo.findSessions(id);
-  return { ...activity, sessions };
+
+  // Separate provider into a top-level field so iOS clients can decode
+  // { activity: {...}, provider: {...} } consistently across all views.
+  const { provider, sport, ...activityFields } = raw;
+  return {
+    activity: { ...activityFields, sport, sessions },
+    provider: provider ?? null,
+  };
 }
 
 export async function create(fields, requestingUser) {
-  // Solo provider_admin puede asignar su provider; admin puede asignar cualquiera
-  if (requestingUser.role === 'provider_admin' && !fields.provider_id) {
-    throw Errors.badRequest('provider_id requerido.');
-  }
   if (!fields.title?.trim()) throw Errors.badRequest('El título es requerido.');
+
+  // provider_admin can only create activities for their own provider
+  if (requestingUser.role === 'provider_admin') {
+    if (!requestingUser.provider_id) throw Errors.forbidden('No tenés proveedor asignado.');
+    fields = { ...fields, provider_id: requestingUser.provider_id };
+  }
+
   return actRepo.create({ ...fields, status: 'draft' });
 }
 

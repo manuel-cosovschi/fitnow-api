@@ -142,7 +142,7 @@ CREATE TABLE IF NOT EXISTS provider_sports (
   sport_id    INT NOT NULL,
   description VARCHAR(255) DEFAULT NULL,
   UNIQUE KEY uniq_ps (provider_id, sport_id),
-  CONSTRAINT fk_ps_user  FOREIGN KEY (provider_id) REFERENCES users(id)   ON DELETE CASCADE,
+  CONSTRAINT fk_ps_provider FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE CASCADE,
   CONSTRAINT fk_ps_sport FOREIGN KEY (sport_id)    REFERENCES sports(id)  ON DELETE CASCADE
 );
 
