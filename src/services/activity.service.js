@@ -41,11 +41,14 @@ export async function getById(id) {
 }
 
 export async function create(fields, requestingUser) {
-  // Solo provider_admin puede asignar su provider; admin puede asignar cualquiera
-  if (requestingUser.role === 'provider_admin' && !fields.provider_id) {
-    throw Errors.badRequest('provider_id requerido.');
-  }
   if (!fields.title?.trim()) throw Errors.badRequest('El título es requerido.');
+
+  // provider_admin can only create activities for their own provider
+  if (requestingUser.role === 'provider_admin') {
+    if (!requestingUser.provider_id) throw Errors.forbidden('No tenés proveedor asignado.');
+    fields = { ...fields, provider_id: requestingUser.provider_id };
+  }
+
   return actRepo.create({ ...fields, status: 'draft' });
 }
 

@@ -4,7 +4,8 @@ import { z } from 'zod';
 const DIFFICULTIES = ['beginner', 'intermediate', 'advanced', 'all_levels'];
 const MODALITIES   = ['presential', 'online', 'hybrid'];
 const KINDS        = ['class', 'event', 'course', 'membership'];
-const STATUSES     = ['draft', 'active', 'inactive', 'cancelled'];
+// 'inactive' is intentionally excluded — not a valid DB ENUM value for activities
+const STATUSES     = ['draft', 'active', 'cancelled'];
 
 export const createActivitySchema = z.object({
   title:       z.string().trim().min(1, 'El título es requerido.').max(200),
@@ -27,10 +28,9 @@ export const updateActivitySchema = createActivitySchema.partial().extend({
 });
 
 export const addSessionSchema = z.object({
-  start_at:    z.string().datetime({ offset: true }),
-  end_at:      z.string().datetime({ offset: true }),
-  capacity:    z.coerce.number().int().min(1).optional().nullable(),
-  location:    z.string().trim().max(300).optional().nullable(),
-  instructor:  z.string().trim().max(100).optional().nullable(),
-  notes:       z.string().trim().max(500).optional().nullable(),
+  start_at: z.string().datetime({ offset: true }),
+  end_at:   z.string().datetime({ offset: true }),
+  capacity: z.coerce.number().int().min(1).optional().nullable(),
+  price:    z.coerce.number().min(0).optional().nullable(),
+  level:    z.string().trim().max(30).optional().nullable(),
 });

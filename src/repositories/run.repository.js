@@ -119,6 +119,7 @@ export async function getRoutesWithMetrics({ lat, lng, radius_m = 10000 }) {
             COUNT(DISTINCT h.id)              AS hazard_count,
             COALESCE(AVG(h.severity), 0)      AS avg_hazard_severity,
             COALESCE(AVG(f.rating), 3.0)      AS avg_rating,
+            COUNT(DISTINCT f.id)              AS feedback_count,
             COUNT(DISTINCT rs.id)             AS session_count
      FROM run_routes rr
      LEFT JOIN hazards h
