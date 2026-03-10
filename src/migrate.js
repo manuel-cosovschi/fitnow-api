@@ -1,7 +1,7 @@
 // src/migrate.js
 // Ejecuta los archivos SQL en orden al arrancar el servidor.
 
-import mysql from 'mysql2/promise';
+import pg from 'pg';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -9,22 +9,19 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SQL_DIR   = path.join(__dirname, '..', 'sql');
 
-// Orden de ejecución: schema primero (tablas base), luego migrations (providers + ALTERs), luego seed
-const FILES = ['schema.sql', 'migrations.sql', 'seed.sql'];
+// schema.sql = esquema completo, seed.sql = datos iniciales
+const FILES = ['schema.sql', 'seed.sql'];
 
-// Errores ignorables en ALTER TABLE / CREATE TABLE:
-//   columna ya existe, índice ya existe, entrada duplicada,
-//   FK con el mismo nombre ya existe, tabla ya existe,
-//   clave/FK a eliminar no existe (1091 = ER_CANT_DROP_FIELD_OR_KEY)
-const IGNORABLE_CODES = new Set(['ER_DUP_FIELDNAME', 'ER_DUP_KEYNAME', 'ER_DUP_ENTRY', 'ER_FK_DUP_NAME', 'ER_TABLE_EXISTS_ERROR', 'ER_CANT_DROP_FIELD_OR_KEY']);
-const IGNORABLE_ERRNO = new Set([1060, 1061, 1062, 1826, 1050, 1091]);
+// Códigos de error PostgreSQL ignorables (idempotencia):
+//   42P07 = duplicate_table, 42701 = duplicate_column,
+//   42710 = duplicate_object, 23505 = unique_violation (seeds)
+//   42704 = undefined_object (DROP INDEX que no existe)
+const IGNORABLE_PG_CODES = new Set(['42P07', '42701', '42710', '23505', '42704', '42P16']);
 
 function isIgnorable(err) {
-  return IGNORABLE_CODES.has(err.code) || IGNORABLE_ERRNO.has(err.errno);
+  return IGNORABLE_PG_CODES.has(err.code);
 }
 
-// Divide un archivo SQL en statements individuales.
-// Elimina comentarios -- primero para que no interfieran con el filtrado.
 function splitStatements(sql) {
   const noComments = sql.replace(/--[^\n]*/g, '');
   return noComments
@@ -34,18 +31,16 @@ function splitStatements(sql) {
 }
 
 export async function runMigrations() {
-  const conn = await mysql.createConnection({
-    host:               process.env.DB_HOST     ?? process.env.MYSQLHOST     ?? '127.0.0.1',
-    port:               Number(process.env.DB_PORT ?? process.env.MYSQLPORT ?? 3306),
-    user:               process.env.DB_USER     ?? process.env.MYSQLUSER     ?? 'root',
-    password:           process.env.DB_PASSWORD ?? process.env.MYSQLPASSWORD ?? '',
-    database:           process.env.DB_NAME     ?? process.env.MYSQLDATABASE ?? 'fitnow',
-    multipleStatements: true,
+  const client = new pg.Client({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.DATABASE_URL?.includes('supabase.co')
+      ? { rejectUnauthorized: false }
+      : undefined,
   });
 
-  try {
-    await conn.query('SET FOREIGN_KEY_CHECKS = 0;');
+  await client.connect();
 
+  try {
     for (const file of FILES) {
       const filePath = path.join(SQL_DIR, file);
       if (!fs.existsSync(filePath)) {
@@ -54,12 +49,11 @@ export async function runMigrations() {
       }
 
       const sql = fs.readFileSync(filePath, 'utf8');
-
-      // Ejecutar statement por statement para poder ignorar duplicados en todos los archivos
       const stmts = splitStatements(sql);
+
       for (const stmt of stmts) {
         try {
-          await conn.query(stmt);
+          await client.query(stmt);
         } catch (err) {
           if (isIgnorable(err)) continue;
           throw err;
@@ -69,9 +63,8 @@ export async function runMigrations() {
       console.log(`[migrate] ✓ ${file}`);
     }
 
-    await conn.query('SET FOREIGN_KEY_CHECKS = 1;');
     console.log('[migrate] Migraciones completadas.');
   } finally {
-    await conn.end();
+    await client.end();
   }
 }

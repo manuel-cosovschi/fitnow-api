@@ -23,13 +23,15 @@ export async function findNear({ lat, lng, radius_m = 500, type } = {}) {
   if (type) { where.push(`h.type = ?`); params.push(type); }
 
   return query(
-    `SELECT h.id, h.lat, h.lng, h.type, h.note, h.severity, h.votes, h.status, h.created_at,
-            (6371000 * ACOS(LEAST(1.0, COS(RADIANS(${lat})) * COS(RADIANS(h.lat))
-              * COS(RADIANS(h.lng) - RADIANS(${lng}))
-              + SIN(RADIANS(${lat})) * SIN(RADIANS(h.lat))))) AS distance_m
-     FROM hazards h
-     WHERE ${where.join(' AND ')}
-     HAVING distance_m < ?
+    `SELECT * FROM (
+       SELECT h.id, h.lat, h.lng, h.type, h.note, h.severity, h.votes, h.status, h.created_at,
+              (6371000 * ACOS(LEAST(1.0, COS(RADIANS(${lat})) * COS(RADIANS(h.lat))
+                * COS(RADIANS(h.lng) - RADIANS(${lng}))
+                + SIN(RADIANS(${lat})) * SIN(RADIANS(h.lat))))) AS distance_m
+       FROM hazards h
+       WHERE ${where.join(' AND ')}
+     ) sub
+     WHERE distance_m < ?
      ORDER BY distance_m ASC
      LIMIT 100`,
     [...params, radius_m]
@@ -45,7 +47,7 @@ export async function findVote(hazardId, userId) {
 }
 
 export async function addVote(hazardId, userId) {
-  await query(`INSERT IGNORE INTO hazard_votes (hazard_id, user_id) VALUES (?,?)`, [hazardId, userId]);
+  await query(`INSERT INTO hazard_votes (hazard_id, user_id) VALUES (?,?) ON CONFLICT DO NOTHING`, [hazardId, userId]);
   await query(`UPDATE hazards SET votes = votes + 1 WHERE id = ?`, [hazardId]);
   return queryOne(`SELECT id, votes FROM hazards WHERE id = ?`, [hazardId]);
 }

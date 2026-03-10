@@ -32,10 +32,10 @@ export async function findManyByUser(userId, { when = 'all', limit = 20, offset 
   let order = `${effStart} DESC`;
 
   if (when === 'upcoming') {
-    extra = `AND e.status != 'cancelled' AND (${effStart} IS NULL OR ${effStart} >= UTC_TIMESTAMP())`;
+    extra = `AND e.status != 'cancelled' AND (${effStart} IS NULL OR ${effStart} >= NOW())`;
     order = `${effStart} ASC`;
   } else if (when === 'past') {
-    extra = `AND ${effStart} < UTC_TIMESTAMP()`;
+    extra = `AND ${effStart} < NOW()`;
     order = `${effStart} DESC`;
   }
 
@@ -63,9 +63,9 @@ export async function countManyByUser(userId, { when = 'all' } = {}) {
   let extra = '';
 
   if (when === 'upcoming') {
-    extra = `AND e.status != 'cancelled' AND (${effStart} IS NULL OR ${effStart} >= UTC_TIMESTAMP())`;
+    extra = `AND e.status != 'cancelled' AND (${effStart} IS NULL OR ${effStart} >= NOW())`;
   } else if (when === 'past') {
-    extra = `AND ${effStart} < UTC_TIMESTAMP()`;
+    extra = `AND ${effStart} < NOW()`;
   }
 
   const row = await queryOne(

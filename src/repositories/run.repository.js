@@ -110,29 +110,31 @@ export async function createRoute(fields) {
 export async function getRoutesWithMetrics({ lat, lng, radius_m = 10000 }) {
   const deg = radiusToDeg(radius_m);
   return query(
-    `SELECT rr.id, rr.title, rr.city, rr.surface, rr.difficulty,
-            rr.distance_m, rr.duration_s, rr.elevation_up_m,
-            rr.center_lat, rr.center_lng, rr.thumbnail_url,
-            (6371000 * ACOS(LEAST(1.0, COS(RADIANS(?)) * COS(RADIANS(rr.center_lat))
-              * COS(RADIANS(rr.center_lng) - RADIANS(?))
-              + SIN(RADIANS(?)) * SIN(RADIANS(rr.center_lat))))) AS distance_from_user_m,
-            COUNT(DISTINCT h.id)              AS hazard_count,
-            COALESCE(AVG(h.severity), 0)      AS avg_hazard_severity,
-            COALESCE(AVG(f.rating), 3.0)      AS avg_rating,
-            COUNT(DISTINCT f.id)              AS feedback_count,
-            COUNT(DISTINCT rs.id)             AS session_count
-     FROM run_routes rr
-     LEFT JOIN hazards h
-       ON h.status = 'active'
-       AND h.lat BETWEEN rr.bbox_min_lat AND rr.bbox_max_lat
-       AND h.lng BETWEEN rr.bbox_min_lng AND rr.bbox_max_lng
-     LEFT JOIN run_feedback f  ON f.route_id  = rr.id
-     LEFT JOIN run_sessions rs ON rs.route_id = rr.id AND rs.status = 'completed'
-     WHERE rr.status = 'active'
-       AND rr.center_lat BETWEEN ? AND ?
-       AND rr.center_lng BETWEEN ? AND ?
-     GROUP BY rr.id
-     HAVING distance_from_user_m < ?`,
+    `SELECT * FROM (
+       SELECT rr.id, rr.title, rr.city, rr.surface, rr.difficulty,
+              rr.distance_m, rr.duration_s, rr.elevation_up_m,
+              rr.center_lat, rr.center_lng, rr.thumbnail_url,
+              (6371000 * ACOS(LEAST(1.0, COS(RADIANS(?)) * COS(RADIANS(rr.center_lat))
+                * COS(RADIANS(rr.center_lng) - RADIANS(?))
+                + SIN(RADIANS(?)) * SIN(RADIANS(rr.center_lat))))) AS distance_from_user_m,
+              COUNT(DISTINCT h.id)              AS hazard_count,
+              COALESCE(AVG(h.severity), 0)      AS avg_hazard_severity,
+              COALESCE(AVG(f.rating), 3.0)      AS avg_rating,
+              COUNT(DISTINCT f.id)              AS feedback_count,
+              COUNT(DISTINCT rs.id)             AS session_count
+       FROM run_routes rr
+       LEFT JOIN hazards h
+         ON h.status = 'active'
+         AND h.lat BETWEEN rr.bbox_min_lat AND rr.bbox_max_lat
+         AND h.lng BETWEEN rr.bbox_min_lng AND rr.bbox_max_lng
+       LEFT JOIN run_feedback f  ON f.route_id  = rr.id
+       LEFT JOIN run_sessions rs ON rs.route_id = rr.id AND rs.status = 'completed'
+       WHERE rr.status = 'active'
+         AND rr.center_lat BETWEEN ? AND ?
+         AND rr.center_lng BETWEEN ? AND ?
+       GROUP BY rr.id
+     ) sub
+     WHERE distance_from_user_m < ?`,
     [lat, lng, lat, lat - deg, lat + deg, lng - deg, lng + deg, radius_m]
   );
 }
@@ -142,7 +144,7 @@ export async function getRoutesWithMetrics({ lat, lng, radius_m = 10000 }) {
 export async function createSession({ user_id, route_id, origin_lat, origin_lng, device }) {
   const result = await query(
     `INSERT INTO run_sessions (user_id, route_id, origin_lat, origin_lng, device, started_at, status)
-     VALUES (?, ?, ?, ?, ?, UTC_TIMESTAMP(), 'active')`,
+     VALUES (?, ?, ?, ?, ?, NOW(), 'active')`,
     [user_id, route_id ?? null, origin_lat ?? null, origin_lng ?? null, device ?? null]
   );
   return queryOne(`SELECT * FROM run_sessions WHERE id = ?`, [result.insertId]);
@@ -170,26 +172,34 @@ export async function finishSession(id, summary) {
 }
 
 export async function abandonSession(id) {
-  await query(`UPDATE run_sessions SET status = 'abandoned', finished_at = UTC_TIMESTAMP() WHERE id = ?`, [id]);
+  await query(`UPDATE run_sessions SET status = 'abandoned', finished_at = NOW() WHERE id = ?`, [id]);
 }
 
 export async function insertTelemetryPoints(sessionId, points) {
   if (!points?.length) return;
-  // Insertar en lotes de 500 para evitar paquetes MySQL demasiado grandes
+  import('../db.js').then(async ({ pool }) => {});  // ensure pool is imported
+  const { pool } = await import('../db.js');
+  const COLS = 10;
   const BATCH = 500;
   for (let i = 0; i < points.length; i += BATCH) {
     const batch = points.slice(i, i + BATCH);
-    const values = batch.map((p) => [
+    const flatValues = batch.flatMap((p) => [
       sessionId, p.ts_ms, p.lat, p.lng,
       p.speed_mps ?? null, p.pace_s ?? null,
       p.elevation_m ?? null, p.hr_bpm ?? null,
-      p.off_route ? 1 : 0, p.accuracy_m ?? null,
+      !!p.off_route, p.accuracy_m ?? null,
     ]);
-    await query(
+    const placeholders = batch
+      .map((_, idx) => {
+        const base = idx * COLS;
+        return `($${base+1},$${base+2},$${base+3},$${base+4},$${base+5},$${base+6},$${base+7},$${base+8},$${base+9},$${base+10})`;
+      })
+      .join(', ');
+    await pool.query(
       `INSERT INTO run_telemetry_points
          (session_id, ts_ms, lat, lng, speed_mps, pace_s, elevation_m, hr_bpm, off_route, accuracy_m)
-       VALUES ?`,
-      [values]
+       VALUES ${placeholders}`,
+      flatValues
     );
   }
 }
