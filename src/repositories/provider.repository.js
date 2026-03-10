@@ -57,10 +57,20 @@ export async function findHours(providerId) {
 export async function replaceHours(providerId, hours) {
   await query(`DELETE FROM provider_hours WHERE provider_id = ?`, [providerId]);
   if (!hours?.length) return [];
-  const values = hours.map((h) => [providerId, h.weekday, h.open_time ?? '00:00', h.close_time ?? '00:00', h.closed ? 1 : 0]);
-  await query(
-    `INSERT INTO provider_hours (provider_id, weekday, open_time, close_time, closed) VALUES ?`,
-    [values]
+  const { pool } = await import('../db.js');
+  const COLS = 5;
+  const flatValues = hours.flatMap((h) => [
+    providerId, h.weekday, h.open_time ?? '00:00', h.close_time ?? '00:00', !!h.closed,
+  ]);
+  const placeholders = hours
+    .map((_, idx) => {
+      const base = idx * COLS;
+      return `($${base+1},$${base+2},$${base+3},$${base+4},$${base+5})`;
+    })
+    .join(', ');
+  await pool.query(
+    `INSERT INTO provider_hours (provider_id, weekday, open_time, close_time, closed) VALUES ${placeholders}`,
+    flatValues
   );
   return findHours(providerId);
 }
