@@ -1,5 +1,6 @@
 // src/controllers/sessions.controller.js
 import { pool } from '../db.js';
+import logger from '../utils/logger.js';
 
 export async function listSessionsByActivity(req, res) {
   try {
@@ -13,7 +14,7 @@ export async function listSessionsByActivity(req, res) {
     );
     return res.json({ items: rows }); // <- siempre un array
   } catch (e) {
-    console.error('listSessionsByActivity error:', e);
+    logger.error('listSessionsByActivity error:', e);
     return res.status(500).json({ error: 'Server error' });
   }
 }
@@ -45,13 +46,13 @@ export async function bookSession(req, res) {
     } catch (e) {
       await conn.rollback();
       if (e && e.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'Already enrolled' });
-      console.error('bookSession error:', e);
+      logger.error('bookSession error:', e);
       return res.status(500).json({ error: 'Server error' });
     } finally {
       conn.release();
     }
   } catch (e) {
-    console.error('bookSession outer error:', e);
+    logger.error('bookSession outer error:', e);
     return res.status(500).json({ error: 'Server error' });
   }
 }
@@ -77,13 +78,13 @@ export async function cancelSession(req, res) {
       return res.json({ status: 'ok' });
     } catch (e) {
       await conn.rollback();
-      console.error('cancelSession error:', e);
+      logger.error('cancelSession error:', e);
       return res.status(500).json({ error: 'Server error' });
     } finally {
       conn.release();
     }
   } catch (e) {
-    console.error('cancelSession outer error:', e);
+    logger.error('cancelSession outer error:', e);
     return res.status(500).json({ error: 'Server error' });
   }
 }

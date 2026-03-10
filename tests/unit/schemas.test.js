@@ -209,19 +209,19 @@ describe('createProviderSchema', () => {
 describe('setHoursSchema', () => {
   it('accepts valid hours array', () => {
     const r = setHoursSchema.safeParse([
-      { day_of_week: 1, open_time: '08:00', close_time: '20:00' },
+      { weekday: 1, open_time: '08:00', close_time: '20:00' },
     ]);
     expect(r.success).toBe(true);
   });
   it('rejects invalid time format', () => {
     const r = setHoursSchema.safeParse([
-      { day_of_week: 1, open_time: '8am', close_time: '20:00' },
+      { weekday: 1, open_time: '8am', close_time: '20:00' },
     ]);
     expect(r.success).toBe(false);
   });
-  it('rejects day_of_week out of range', () => {
+  it('rejects weekday out of range', () => {
     const r = setHoursSchema.safeParse([
-      { day_of_week: 8, open_time: '08:00', close_time: '20:00' },
+      { weekday: 8, open_time: '08:00', close_time: '20:00' },
     ]);
     expect(r.success).toBe(false);
   });
