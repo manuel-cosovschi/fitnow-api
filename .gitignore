@@ -39,3 +39,19 @@ Podfile.lock
 **/*.xccheckout
 # Otros
 *.swp
+
+# --- Python / ML / AI
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.ipynb_checkpoints/
+Train_FitNow*.ipynb
+*.pkl
+*.h5
+*.model
+
+# --- AI training data / exports
+ai_routes_*.csv
+ai_weights_*.json
+route_score_*.pkl
