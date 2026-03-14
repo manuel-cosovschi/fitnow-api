@@ -56,3 +56,12 @@ export async function removeService(req, res, next) {
     res.json(await provService.removeService(Number(req.params.id), Number(req.params.serviceId), req.user));
   } catch (err) { next(err); }
 }
+
+export async function getSports(req, res, next) {
+  try {
+    const services = await provService.getServices(Number(req.params.id));
+    // iOS expects { items: [{ id, name }] }
+    const items = services.map((s) => ({ id: s.sport_id, name: s.sport_name }));
+    res.json({ items });
+  } catch (err) { next(err); }
+}
