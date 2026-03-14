@@ -99,7 +99,7 @@ export async function createRoute(fields) {
         elevation_up_m, elevation_down_m, polyline, center_lat, center_lng,
         bbox_min_lat, bbox_min_lng, bbox_max_lat, bbox_max_lng, thumbnail_url, provider_id, status)
      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'active')`,
-    [title, description ?? null, city ?? null, surface ?? 'road', difficulty ?? 'intermediate',
+    [title, description ?? null, city ?? null, surface ?? 'road', difficulty ?? 'media',
      distance_m, duration_s ?? null, elevation_up_m ?? 0, elevation_down_m ?? 0,
      polyline, center_lat, center_lng, bbox_min_lat, bbox_min_lng, bbox_max_lat, bbox_max_lng,
      thumbnail_url ?? null, provider_id ?? null]
