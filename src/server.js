@@ -41,7 +41,7 @@ function getLocalIp() {
 async function bootstrap() {
   try {
     await pool.query('SELECT 1 + 1 AS ok');
-    logger.info('MySQL pool conectado.');
+    logger.info('PostgreSQL pool conectado.');
 
     await runMigrations();
 
@@ -56,7 +56,7 @@ async function bootstrap() {
 
     process.on('SIGINT', async () => {
       logger.info('Cerrando servidor...');
-      try { await pool.end(); logger.info('Pool MySQL cerrado.'); } catch {}
+      try { await pool.end(); logger.info('Pool PostgreSQL cerrado.'); } catch {}
       process.exit(0);
     });
   } catch (e) {
