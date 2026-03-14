@@ -92,6 +92,10 @@ export async function addService(providerId, { sport_id, description }, requesti
   return provRepo.addService(providerId, { sport_id: Number(sport_id), description: description ?? null });
 }
 
+export async function getServices(providerId) {
+  return provRepo.findServices(providerId);
+}
+
 export async function removeService(providerId, serviceId, requestingUser) {
   const provider = await provRepo.findById(providerId);
   if (!provider) throw Errors.notFound('Proveedor no encontrado.');

@@ -64,10 +64,10 @@ CREATE TABLE IF NOT EXISTS activities (
                 CHECK (status IN ('draft','active','cancelled')),
   title       VARCHAR(160)  NOT NULL,
   description TEXT,
-  modality    VARCHAR(20)   DEFAULT 'presential'
-                CHECK (modality IN ('presential','online','hybrid')),
-  difficulty  VARCHAR(20)   DEFAULT 'intermediate'
-                CHECK (difficulty IN ('beginner','intermediate','advanced','all_levels')),
+  modality    VARCHAR(20)   DEFAULT 'clase'
+                CHECK (modality IN ('gimnasio','outdoor','clase','torneo')),
+  difficulty  VARCHAR(10)   DEFAULT 'media'
+                CHECK (difficulty IN ('baja','media','alta')),
   location    VARCHAR(200),
   price       DECIMAL(10,2) DEFAULT 0,
   date_start  TIMESTAMPTZ,
@@ -123,8 +123,8 @@ CREATE TABLE IF NOT EXISTS run_routes (
   city             VARCHAR(100),
   surface          VARCHAR(20)      NOT NULL DEFAULT 'road'
                      CHECK (surface IN ('road','trail','mixed')),
-  difficulty       VARCHAR(20)      NOT NULL DEFAULT 'intermediate'
-                     CHECK (difficulty IN ('beginner','intermediate','advanced')),
+  difficulty       VARCHAR(10)      NOT NULL DEFAULT 'media'
+                     CHECK (difficulty IN ('baja','media','alta')),
   distance_m       INT              NOT NULL DEFAULT 0,
   duration_s       INT,
   elevation_up_m   INT              NOT NULL DEFAULT 0,
@@ -299,23 +299,23 @@ CREATE INDEX IF NOT EXISTS idx_prt_user_id ON password_reset_tokens(user_id);
 -- migrate.js ignores duplicate_object (42710) so these are safe to re-run.
 -- ─────────────────────────────────────────────────────────────────────────────
 
--- activities.difficulty: Spanish → English
+-- activities.difficulty: restore Spanish values
 ALTER TABLE activities DROP CONSTRAINT IF EXISTS activities_difficulty_check;
 ALTER TABLE activities ADD CONSTRAINT activities_difficulty_check
-  CHECK (difficulty IN ('beginner','intermediate','advanced','all_levels'));
-ALTER TABLE activities ALTER COLUMN difficulty SET DEFAULT 'intermediate';
+  CHECK (difficulty IN ('baja','media','alta'));
+ALTER TABLE activities ALTER COLUMN difficulty SET DEFAULT 'media';
 
--- activities.modality: Spanish → English
+-- activities.modality: restore Spanish values
 ALTER TABLE activities DROP CONSTRAINT IF EXISTS activities_modality_check;
 ALTER TABLE activities ADD CONSTRAINT activities_modality_check
-  CHECK (modality IN ('presential','online','hybrid'));
-ALTER TABLE activities ALTER COLUMN modality SET DEFAULT 'presential';
+  CHECK (modality IN ('gimnasio','outdoor','clase','torneo'));
+ALTER TABLE activities ALTER COLUMN modality SET DEFAULT 'clase';
 
--- run_routes.difficulty: Spanish → English
+-- run_routes.difficulty: restore Spanish values
 ALTER TABLE run_routes DROP CONSTRAINT IF EXISTS run_routes_difficulty_check;
 ALTER TABLE run_routes ADD CONSTRAINT run_routes_difficulty_check
-  CHECK (difficulty IN ('beginner','intermediate','advanced'));
-ALTER TABLE run_routes ALTER COLUMN difficulty SET DEFAULT 'intermediate';
+  CHECK (difficulty IN ('baja','media','alta'));
+ALTER TABLE run_routes ALTER COLUMN difficulty SET DEFAULT 'media';
 
 -- users.bio: add if missing
 ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT;

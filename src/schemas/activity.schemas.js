@@ -1,8 +1,8 @@
 // src/schemas/activity.schemas.js
 import { z } from 'zod';
 
-const DIFFICULTIES = ['beginner', 'intermediate', 'advanced', 'all_levels'];
-const MODALITIES   = ['presential', 'online', 'hybrid'];
+const DIFFICULTIES = ['baja', 'media', 'alta'];
+const MODALITIES   = ['gimnasio', 'outdoor', 'clase', 'torneo'];
 const KINDS        = ['class', 'event', 'course', 'membership'];
 // 'inactive' is intentionally excluded — not a valid DB ENUM value for activities
 const STATUSES     = ['draft', 'active', 'cancelled'];
