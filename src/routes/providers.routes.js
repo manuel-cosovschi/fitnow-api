@@ -10,6 +10,7 @@ const router = Router();
 
 router.get  ('/',                                                                                              ctrl.list);
 router.get  ('/:id',                                                                                           ctrl.getById);
+router.get  ('/:id/sports',                                                                                    ctrl.getSports);
 router.post ('/', requireAuth, requireRole('admin'), validateBody(createProviderSchema),                        ctrl.create);
 router.patch('/:id', requireAuth, requireRole('admin','provider_admin'), validateBody(updateProviderSchema),    ctrl.update);
 router.post ('/:id/activate', requireAuth, requireRole('admin'),                                               ctrl.activate);
