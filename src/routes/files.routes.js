@@ -6,7 +6,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 import { requireAuth } from '../middleware/auth.js';
-import { pool } from '../db.js';
+import { query } from '../db.js';
 import logger from '../utils/logger.js';
 
 const router = Router();
@@ -60,7 +60,7 @@ router.post('/photo', requireAuth, (req, res, next) => {
     const base = process.env.PUBLIC_BASE_URL || `http://127.0.0.1:${process.env.PORT || 3000}`;
     const url  = `${base}/uploads/${req.file.filename}`;
 
-    await pool.query(
+    await query(
       'UPDATE users SET photo_url=?, updated_at=NOW() WHERE id=?',
       [url, req.user.id]
     );
