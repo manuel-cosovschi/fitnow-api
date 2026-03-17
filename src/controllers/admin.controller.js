@@ -69,19 +69,21 @@ export async function assignProviderRole(req, res, next) {
 
 export async function getStats(req, res, next) {
   try {
-    const [users, providers, activities, enrollments, pendingOffers] = await Promise.all([
+    const [users, providers, activities, totalEnrollments, activeEnrollments, pendingOffers] = await Promise.all([
       queryOne(`SELECT COUNT(*) AS total FROM users WHERE deleted_at IS NULL`),
       queryOne(`SELECT COUNT(*) AS total FROM providers`),
       queryOne(`SELECT COUNT(*) AS total FROM activities`),
+      queryOne(`SELECT COUNT(*) AS total FROM enrollments`),
       queryOne(`SELECT COUNT(*) AS total FROM enrollments WHERE status = 'active'`),
       queryOne(`SELECT COUNT(*) AS total FROM offers WHERE status = 'pending'`),
     ]);
     res.json({
-      total_users:       users?.total       ?? 0,
-      total_providers:   providers?.total   ?? 0,
-      total_activities:  activities?.total  ?? 0,
-      total_enrollments: enrollments?.total ?? 0,
-      pending_offers:    pendingOffers?.total ?? 0,
+      total_users:        users?.total             ?? 0,
+      total_providers:    providers?.total         ?? 0,
+      total_activities:   activities?.total        ?? 0,
+      total_enrollments:  totalEnrollments?.total  ?? 0,
+      active_enrollments: activeEnrollments?.total ?? 0,
+      pending_offers:     pendingOffers?.total     ?? 0,
     });
   } catch (err) { next(err); }
 }
@@ -116,6 +118,6 @@ export async function approveOffer(req, res, next) {
 
 export async function rejectOffer(req, res, next) {
   try {
-    res.json(await offerService.reject(Number(req.params.id)));
+    res.json(await offerService.reject(Number(req.params.id), req.body.reason ?? null));
   } catch (err) { next(err); }
 }

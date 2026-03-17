@@ -1,12 +1,17 @@
 // src/repositories/offer.repository.js
 import { query, queryOne } from '../db.js';
 
-export async function create({ title, description, discount_label, activity_kind, provider_id, valid_until, icon_name }) {
+export async function create({ title, description, discount_percent, discount_label, valid_from, valid_until, activity_kind, icon_name, provider_id }) {
   const result = await query(
-    `INSERT INTO offers (title, description, discount_label, activity_kind, provider_id, valid_until, icon_name, status)
-     VALUES (?,?,?,?,?,?,?,'pending')`,
-    [title, description ?? null, discount_label, activity_kind ?? null, provider_id,
-     valid_until ?? null, icon_name ?? null]
+    `INSERT INTO offers
+       (title, description, discount_percent, discount_label, valid_from, valid_until,
+        activity_kind, icon_name, provider_id, status)
+     VALUES (?,?,?,?,?,?,?,?,?,'pending')`,
+    [title, description ?? null,
+     discount_percent ?? null, discount_label ?? null,
+     valid_from ?? null, valid_until ?? null,
+     activity_kind ?? null, icon_name ?? null,
+     provider_id]
   );
   return findById(result.insertId);
 }
@@ -63,7 +68,10 @@ export async function countManyByProvider(providerId) {
   return row?.total ?? 0;
 }
 
-export async function updateStatus(id, status) {
-  await query(`UPDATE offers SET status = ? WHERE id = ?`, [status, id]);
+export async function updateStatus(id, status, rejectionReason = null) {
+  await query(
+    `UPDATE offers SET status = ?, rejection_reason = ?, updated_at = NOW() WHERE id = ?`,
+    [status, rejectionReason, id]
+  );
   return findById(id);
 }
