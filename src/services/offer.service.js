@@ -3,11 +3,19 @@ import * as offerRepo from '../repositories/offer.repository.js';
 import { parsePagination, paginatedResponse } from '../utils/paginate.js';
 import { Errors } from '../utils/errors.js';
 
-export async function create(providerId, { title, description, discount_label, activity_kind, valid_until, icon_name }) {
+export async function create(providerId, { title, description, discount_percent, discount_label, valid_from, valid_until, activity_kind, icon_name }) {
   if (!title?.trim()) throw Errors.badRequest('El título es requerido.');
-  if (!discount_label?.trim()) throw Errors.badRequest('discount_label es requerido.');
+  if (discount_percent == null && !discount_label?.trim())
+    throw Errors.badRequest('Se requiere discount_percent o discount_label.');
 
-  return offerRepo.create({ title, description, discount_label, activity_kind, provider_id: providerId, valid_until, icon_name });
+  return offerRepo.create({
+    title, description,
+    discount_percent: discount_percent ?? null,
+    discount_label:   discount_label ?? null,
+    valid_from, valid_until,
+    activity_kind, icon_name,
+    provider_id: providerId,
+  });
 }
 
 export async function listApproved(queryParams) {
@@ -44,8 +52,8 @@ export async function approve(id) {
   return offerRepo.updateStatus(id, 'approved');
 }
 
-export async function reject(id) {
+export async function reject(id, reason = null) {
   const offer = await offerRepo.findById(id);
   if (!offer) throw Errors.notFound('Oferta no encontrada.');
-  return offerRepo.updateStatus(id, 'rejected');
+  return offerRepo.updateStatus(id, 'rejected', reason);
 }

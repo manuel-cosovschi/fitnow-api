@@ -57,6 +57,15 @@ export async function listMine(userId, queryParams) {
   return paginatedResponse(items, { page, perPage, total });
 }
 
+export async function listByProvider(providerId, queryParams) {
+  const { page, perPage, offset } = parsePagination(queryParams);
+  const [items, total] = await Promise.all([
+    enrollRepo.findManyByProvider(providerId, { limit: perPage, offset }),
+    enrollRepo.countManyByProvider(providerId),
+  ]);
+  return paginatedResponse(items, { page, perPage, total });
+}
+
 export async function cancel(userId, enrollmentId) {
   const enrollment = await enrollRepo.findById(enrollmentId);
   if (!enrollment) throw Errors.notFound('Inscripción no encontrada.');
