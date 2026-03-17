@@ -319,3 +319,40 @@ ALTER TABLE run_routes ALTER COLUMN difficulty SET DEFAULT 'media';
 
 -- users.bio: add if missing
 ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- activities: new provider-configurable flags
+-- ─────────────────────────────────────────────────────────────────────────────
+ALTER TABLE activities ADD COLUMN IF NOT EXISTS enable_running    BOOLEAN       NOT NULL DEFAULT FALSE;
+ALTER TABLE activities ADD COLUMN IF NOT EXISTS enable_deposit    BOOLEAN       NOT NULL DEFAULT FALSE;
+ALTER TABLE activities ADD COLUMN IF NOT EXISTS deposit_percent   SMALLINT      NOT NULL DEFAULT 50;
+ALTER TABLE activities ADD COLUMN IF NOT EXISTS has_capacity_limit BOOLEAN      NOT NULL DEFAULT FALSE;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- enrollments: plan and payment fields
+-- ─────────────────────────────────────────────────────────────────────────────
+ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS plan_name       VARCHAR(100);
+ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS plan_price      DECIMAL(10,2);
+ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS payment_type    VARCHAR(20)   NOT NULL DEFAULT 'full'
+                          CHECK (payment_type IN ('full','deposit'));
+ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS payment_method  VARCHAR(20)   NOT NULL DEFAULT 'card'
+                          CHECK (payment_method IN ('card','transfer'));
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- offers
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS offers (
+  id             SERIAL        PRIMARY KEY,
+  title          VARCHAR(200)  NOT NULL,
+  description    TEXT,
+  discount_label VARCHAR(60)   NOT NULL,
+  activity_kind  VARCHAR(40),
+  provider_id    INT           REFERENCES providers(id) ON DELETE CASCADE,
+  status         VARCHAR(20)   NOT NULL DEFAULT 'pending'
+                   CHECK (status IN ('pending','approved','rejected')),
+  valid_until    TIMESTAMPTZ,
+  icon_name      VARCHAR(100),
+  created_at     TIMESTAMPTZ   DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_offers_status      ON offers(status);
+CREATE INDEX IF NOT EXISTS idx_offers_provider_id ON offers(provider_id);
