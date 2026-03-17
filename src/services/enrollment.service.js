@@ -5,7 +5,7 @@ import { transaction }  from '../db.js';
 import { parsePagination, paginatedResponse } from '../utils/paginate.js';
 import { Errors } from '../utils/errors.js';
 
-export async function enroll(userId, { activity_id, session_id }) {
+export async function enroll(userId, { activity_id, session_id, plan_name, plan_price, payment_type, payment_method }) {
   if (!activity_id) throw Errors.badRequest('activity_id requerido.');
 
   const activity = await actRepo.findById(activity_id);
@@ -25,15 +25,22 @@ export async function enroll(userId, { activity_id, session_id }) {
     } else {
       const act = await actRepo.findByIdForUpdate(conn, activity_id);
       if (!act) throw Errors.notFound('Actividad no encontrada.');
-      if (act.seats_left <= 0) throw Errors.conflict('NO_SEATS', 'No quedan lugares en esta actividad.');
+      if (act.has_capacity_limit && act.seats_left <= 0)
+        throw Errors.conflict('NO_CAPACITY', 'No quedan lugares en esta actividad.');
+      if (!act.has_capacity_limit && act.seats_left <= 0)
+        throw Errors.conflict('NO_SEATS', 'No quedan lugares en esta actividad.');
       await actRepo.decrementSeats(conn, activity_id);
     }
 
     return enrollRepo.create(conn, {
-      user_id:     userId,
-      activity_id: Number(activity_id),
-      session_id:  session_id ? Number(session_id) : null,
-      price_paid:  activity.price ?? 0,
+      user_id:        userId,
+      activity_id:    Number(activity_id),
+      session_id:     session_id ? Number(session_id) : null,
+      price_paid:     plan_price ?? activity.price ?? 0,
+      plan_name:      plan_name ?? null,
+      plan_price:     plan_price ?? null,
+      payment_type:   payment_type ?? 'full',
+      payment_method: payment_method ?? 'card',
     });
   });
 }
