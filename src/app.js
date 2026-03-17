@@ -18,6 +18,7 @@ import adminRoutes     from './routes/admin.routes.js';
 import accountRoutes   from './routes/account.routes.js';
 import filesRoutes     from './routes/files.routes.js';
 import sessionsRoutes  from './routes/sessions.routes.js';
+import offersRoutes    from './routes/offers.routes.js';
 
 const app = express();
 
@@ -88,6 +89,7 @@ app.use('/api/run',         runRoutes);
 app.use('/api/hazards',     hazardsRoutes);
 app.use('/api/news',        newsRoutes);
 app.use('/api/admin',       adminRoutes);
+app.use('/api/offers',      offersRoutes);
 app.use('/api/account',     accountRoutes);
 app.use('/api/files',       filesRoutes);
 // Mounted at /api (not a sub-prefix) so it can serve both

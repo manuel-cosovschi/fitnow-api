@@ -73,3 +73,12 @@ export async function addSession(activityId, fields) {
   if (!fields.start_at || !fields.end_at) throw Errors.badRequest('start_at y end_at son requeridos.');
   return actRepo.createSession(activityId, fields);
 }
+
+export async function updateSettings(id, fields, requestingUser) {
+  const activity = await actRepo.findById(id);
+  if (!activity) throw Errors.notFound('Actividad no encontrada.');
+  if (requestingUser.role === 'provider_admin' && activity.provider_id !== requestingUser.provider_id) {
+    throw Errors.forbidden('No podés editar actividades de otro proveedor.');
+  }
+  return actRepo.updateSettings(id, fields);
+}

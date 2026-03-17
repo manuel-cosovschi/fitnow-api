@@ -8,11 +8,13 @@ export async function findDuplicate(userId, activityId) {
   );
 }
 
-export async function create(conn, { user_id, activity_id, session_id, price_paid }) {
+export async function create(conn, { user_id, activity_id, session_id, price_paid, plan_name, plan_price, payment_type, payment_method }) {
   const [result] = await conn.query(
-    `INSERT INTO enrollments (user_id, activity_id, session_id, price_paid)
-     VALUES (?,?,?,?)`,
-    [user_id, activity_id, session_id ?? null, price_paid ?? 0]
+    `INSERT INTO enrollments (user_id, activity_id, session_id, price_paid, plan_name, plan_price, payment_type, payment_method)
+     VALUES (?,?,?,?,?,?,?,?)`,
+    [user_id, activity_id, session_id ?? null, price_paid ?? 0,
+     plan_name ?? null, plan_price ?? null,
+     payment_type ?? 'full', payment_method ?? 'card']
   );
   const [rows] = await conn.query(`SELECT * FROM enrollments WHERE id = ?`, [result.insertId]);
   return rows[0] ?? null;
@@ -44,8 +46,10 @@ export async function findManyByUser(userId, { when = 'all', limit = 20, offset 
             a.kind AS activity_kind, a.title, a.location, a.modality, a.difficulty,
             ${effStart} AS date_start, COALESCE(e.end_at, a.date_end) AS date_end,
             COALESCE(e.price_paid, a.price) AS price_paid,
+            e.plan_name, e.plan_price, e.payment_type, e.payment_method,
             p.id AS provider_id, p.name AS provider_name,
             s.id AS sport_id, s.name AS sport_name,
+            a.enable_running, a.enable_deposit, a.deposit_percent, a.has_capacity_limit,
             e.created_at
      FROM enrollments e
      JOIN activities a ON a.id = e.activity_id
