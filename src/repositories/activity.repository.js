@@ -7,6 +7,7 @@ export async function findMany({ where = [], params = [], orderBy = 'a.date_star
     `SELECT a.id, a.title, a.description, a.modality, a.difficulty, a.kind, a.status,
             a.location, a.lat, a.lng, a.price, a.capacity, a.seats_left,
             a.date_start, a.date_end, a.created_at,
+            a.enable_running, a.enable_deposit, a.deposit_percent, a.has_capacity_limit,
             p.id AS provider_id, p.name AS provider_name, p.logo_url AS provider_logo,
             s.id AS sport_id, s.name AS sport_name
      FROM activities a
@@ -60,18 +61,21 @@ export async function findByIdForUpdate(conn, id) {
 export async function create(fields) {
   const { title, description, modality, difficulty, kind = 'gym', status = 'active',
           location, lat, lng, price, capacity, date_start, date_end, rules,
-          provider_id, sport_id } = fields;
+          provider_id, sport_id,
+          enable_running = false, enable_deposit = false, deposit_percent = 50, has_capacity_limit = false } = fields;
   const result = await query(
     `INSERT INTO activities
        (title, description, modality, difficulty, kind, status, location, lat, lng,
-        price, capacity, seats_left, date_start, date_end, rules, provider_id, sport_id)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        price, capacity, seats_left, date_start, date_end, rules, provider_id, sport_id,
+        enable_running, enable_deposit, deposit_percent, has_capacity_limit)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [title, description ?? null, modality, difficulty, kind, status,
      location ?? null, lat ?? null, lng ?? null,
      price ?? 0, capacity ?? 20, capacity ?? 20,
      date_start ?? null, date_end ?? null,
      rules ? JSON.stringify(rules) : null,
-     provider_id ?? null, sport_id ?? null]
+     provider_id ?? null, sport_id ?? null,
+     enable_running, enable_deposit, deposit_percent, has_capacity_limit]
   );
   return findById(result.insertId);
 }
@@ -82,6 +86,15 @@ export async function update(id, fields) {
   const payload = Object.fromEntries(Object.entries(fields).filter(([k]) => allowed.includes(k)));
   if (!Object.keys(payload).length) return findById(id);
   if (payload.rules) payload.rules = JSON.stringify(payload.rules);
+  const sets = Object.keys(payload).map((k) => `${k} = ?`).join(', ');
+  await query(`UPDATE activities SET ${sets}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [...Object.values(payload), id]);
+  return findById(id);
+}
+
+export async function updateSettings(id, fields) {
+  const allowed = ['enable_running','enable_deposit','deposit_percent','has_capacity_limit'];
+  const payload = Object.fromEntries(Object.entries(fields).filter(([k]) => allowed.includes(k)));
+  if (!Object.keys(payload).length) return findById(id);
   const sets = Object.keys(payload).map((k) => `${k} = ?`).join(', ');
   await query(`UPDATE activities SET ${sets}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [...Object.values(payload), id]);
   return findById(id);

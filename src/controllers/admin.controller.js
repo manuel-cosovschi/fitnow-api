@@ -2,6 +2,8 @@
 import * as aiService   from '../services/ai.service.js';
 import * as userRepo    from '../repositories/user.repository.js';
 import * as provRepo    from '../repositories/provider.repository.js';
+import * as offerService from '../services/offer.service.js';
+import { queryOne }     from '../db.js';
 import { parsePagination, paginatedResponse } from '../utils/paginate.js';
 import { Errors } from '../utils/errors.js';
 
@@ -60,5 +62,60 @@ export async function assignProviderRole(req, res, next) {
     const user = await userRepo.setRoleAndProvider(userId, role, providerId);
     if (!user) throw Errors.notFound('Usuario no encontrado.');
     res.json(user);
+  } catch (err) { next(err); }
+}
+
+// ─── Stats ────────────────────────────────────────────────────────────────────
+
+export async function getStats(req, res, next) {
+  try {
+    const [users, providers, activities, enrollments, pendingOffers] = await Promise.all([
+      queryOne(`SELECT COUNT(*) AS total FROM users WHERE deleted_at IS NULL`),
+      queryOne(`SELECT COUNT(*) AS total FROM providers`),
+      queryOne(`SELECT COUNT(*) AS total FROM activities`),
+      queryOne(`SELECT COUNT(*) AS total FROM enrollments WHERE status = 'active'`),
+      queryOne(`SELECT COUNT(*) AS total FROM offers WHERE status = 'pending'`),
+    ]);
+    res.json({
+      total_users:       users?.total       ?? 0,
+      total_providers:   providers?.total   ?? 0,
+      total_activities:  activities?.total  ?? 0,
+      total_enrollments: enrollments?.total ?? 0,
+      pending_offers:    pendingOffers?.total ?? 0,
+    });
+  } catch (err) { next(err); }
+}
+
+// ─── Providers ────────────────────────────────────────────────────────────────
+
+export async function listProviders(req, res, next) {
+  try {
+    const { page, perPage, offset } = parsePagination(req.query);
+    const filters = { q: req.query.q?.trim() || null, kind: req.query.kind || null };
+    const [items, total] = await Promise.all([
+      provRepo.findMany({ ...filters, limit: perPage, offset }),
+      provRepo.countMany(filters),
+    ]);
+    res.json(paginatedResponse(items, { page, perPage, total }));
+  } catch (err) { next(err); }
+}
+
+// ─── Offers ───────────────────────────────────────────────────────────────────
+
+export async function listAdminOffers(req, res, next) {
+  try {
+    res.json(await offerService.listAdmin(req.query));
+  } catch (err) { next(err); }
+}
+
+export async function approveOffer(req, res, next) {
+  try {
+    res.json(await offerService.approve(Number(req.params.id)));
+  } catch (err) { next(err); }
+}
+
+export async function rejectOffer(req, res, next) {
+  try {
+    res.json(await offerService.reject(Number(req.params.id)));
   } catch (err) { next(err); }
 }

@@ -38,3 +38,9 @@ export async function addSession(req, res, next) {
     res.status(201).json(session);
   } catch (err) { next(err); }
 }
+
+export async function updateSettings(req, res, next) {
+  try {
+    res.json(await actService.updateSettings(Number(req.params.id), req.body, req.user));
+  } catch (err) { next(err); }
+}
