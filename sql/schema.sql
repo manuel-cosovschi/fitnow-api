@@ -356,3 +356,12 @@ CREATE TABLE IF NOT EXISTS offers (
 );
 CREATE INDEX IF NOT EXISTS idx_offers_status      ON offers(status);
 CREATE INDEX IF NOT EXISTS idx_offers_provider_id ON offers(provider_id);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- offers: add new fields (discount_percent, valid_from, rejection_reason, updated_at)
+-- ─────────────────────────────────────────────────────────────────────────────
+ALTER TABLE offers ALTER COLUMN discount_label DROP NOT NULL;
+ALTER TABLE offers ADD COLUMN IF NOT EXISTS discount_percent  INT         CHECK (discount_percent BETWEEN 1 AND 100);
+ALTER TABLE offers ADD COLUMN IF NOT EXISTS valid_from        TIMESTAMPTZ;
+ALTER TABLE offers ADD COLUMN IF NOT EXISTS rejection_reason  TEXT;
+ALTER TABLE offers ADD COLUMN IF NOT EXISTS updated_at        TIMESTAMPTZ DEFAULT NOW();
