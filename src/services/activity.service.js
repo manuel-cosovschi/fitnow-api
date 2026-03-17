@@ -82,3 +82,31 @@ export async function updateSettings(id, fields, requestingUser) {
   }
   return actRepo.updateSettings(id, fields);
 }
+
+export async function listPosts(activityId) {
+  const activity = await actRepo.findById(activityId);
+  if (!activity) throw Errors.notFound('Actividad no encontrada.');
+  return actRepo.listPosts(activityId);
+}
+
+export async function createPost(activityId, body, requestingUser) {
+  const activity = await actRepo.findById(activityId);
+  if (!activity) throw Errors.notFound('Actividad no encontrada.');
+  if (requestingUser.role === 'provider_admin' && activity.provider_id !== requestingUser.provider_id) {
+    throw Errors.forbidden('No tenés permiso para publicar en esta actividad.');
+  }
+  return actRepo.createPost({
+    activity_id: activityId,
+    provider_id: requestingUser.provider_id ?? activity.provider_id,
+    ...body,
+  });
+}
+
+export async function deletePost(activityId, postId, requestingUser) {
+  const post = await actRepo.findPost(postId);
+  if (!post || post.activity_id !== activityId) throw Errors.notFound('Publicación no encontrada.');
+  if (requestingUser.role === 'provider_admin' && post.provider_id !== requestingUser.provider_id) {
+    throw Errors.forbidden('No tenés permiso para eliminar esta publicación.');
+  }
+  await actRepo.deletePost(postId);
+}

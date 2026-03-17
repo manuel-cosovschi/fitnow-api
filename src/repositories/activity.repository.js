@@ -7,7 +7,7 @@ export async function findMany({ where = [], params = [], orderBy = 'a.date_star
     `SELECT a.id, a.title, a.description, a.modality, a.difficulty, a.kind, a.status,
             a.location, a.lat, a.lng, a.price, a.capacity, a.seats_left,
             a.date_start, a.date_end, a.created_at,
-            a.enable_running, a.enable_deposit, a.deposit_percent, a.has_capacity_limit,
+            a.enable_running, a.enable_deposit, a.deposit_percent, a.has_capacity_limit, a.enable_files,
             p.id AS provider_id, p.name AS provider_name, p.logo_url AS provider_logo,
             s.id AS sport_id, s.name AS sport_name
      FROM activities a
@@ -62,20 +62,21 @@ export async function create(fields) {
   const { title, description, modality, difficulty, kind = 'gym', status = 'active',
           location, lat, lng, price, capacity, date_start, date_end, rules,
           provider_id, sport_id,
-          enable_running = false, enable_deposit = false, deposit_percent = 50, has_capacity_limit = false } = fields;
+          enable_running = false, enable_deposit = false, deposit_percent = 50,
+          has_capacity_limit = false, enable_files = false } = fields;
   const result = await query(
     `INSERT INTO activities
        (title, description, modality, difficulty, kind, status, location, lat, lng,
         price, capacity, seats_left, date_start, date_end, rules, provider_id, sport_id,
-        enable_running, enable_deposit, deposit_percent, has_capacity_limit)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        enable_running, enable_deposit, deposit_percent, has_capacity_limit, enable_files)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [title, description ?? null, modality, difficulty, kind, status,
      location ?? null, lat ?? null, lng ?? null,
      price ?? 0, capacity ?? 20, capacity ?? 20,
      date_start ?? null, date_end ?? null,
      rules ? JSON.stringify(rules) : null,
      provider_id ?? null, sport_id ?? null,
-     enable_running, enable_deposit, deposit_percent, has_capacity_limit]
+     enable_running, enable_deposit, deposit_percent, has_capacity_limit, enable_files]
   );
   return findById(result.insertId);
 }
@@ -92,7 +93,7 @@ export async function update(id, fields) {
 }
 
 export async function updateSettings(id, fields) {
-  const allowed = ['enable_running','enable_deposit','deposit_percent','has_capacity_limit'];
+  const allowed = ['enable_running','enable_deposit','deposit_percent','has_capacity_limit','enable_files'];
   const payload = Object.fromEntries(Object.entries(fields).filter(([k]) => allowed.includes(k)));
   if (!Object.keys(payload).length) return findById(id);
   const sets = Object.keys(payload).map((k) => `${k} = ?`).join(', ');
@@ -129,6 +130,32 @@ export async function incrementSessionSeats(conn, sessionId) {
   await conn.query(`UPDATE activity_sessions SET seats_left = seats_left + 1 WHERE id = ?`, [sessionId]);
 }
 
+// Posts
+export async function listPosts(activityId) {
+  return query(
+    `SELECT * FROM activity_posts WHERE activity_id = ? ORDER BY created_at DESC`,
+    [activityId]
+  );
+}
+
+export async function createPost({ activity_id, provider_id, type, title, body, file_url, file_name }) {
+  return queryOne(
+    `INSERT INTO activity_posts (activity_id, provider_id, type, title, body, file_url, file_name)
+     VALUES (?,?,?,?,?,?,?)
+     RETURNING *`,
+    [activity_id, provider_id, type, title, body ?? null, file_url ?? null, file_name ?? null]
+  );
+}
+
+export async function findPost(id) {
+  return queryOne(`SELECT * FROM activity_posts WHERE id = ?`, [id]);
+}
+
+export async function deletePost(id) {
+  return query(`DELETE FROM activity_posts WHERE id = ?`, [id]);
+}
+
+// Sessions
 export async function createSession(activityId, fields) {
   const { start_at, end_at, capacity, price, level } = fields;
   const result = await query(

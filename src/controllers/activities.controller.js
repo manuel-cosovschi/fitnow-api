@@ -44,3 +44,24 @@ export async function updateSettings(req, res, next) {
     res.json(await actService.updateSettings(Number(req.params.id), req.body, req.user));
   } catch (err) { next(err); }
 }
+
+export async function listPosts(req, res, next) {
+  try {
+    const posts = await actService.listPosts(Number(req.params.id));
+    res.json({ items: posts });
+  } catch (e) { next(e); }
+}
+
+export async function createPost(req, res, next) {
+  try {
+    const post = await actService.createPost(Number(req.params.id), req.body, req.user);
+    res.status(201).json(post);
+  } catch (e) { next(e); }
+}
+
+export async function deletePost(req, res, next) {
+  try {
+    await actService.deletePost(Number(req.params.id), Number(req.params.postId), req.user);
+    res.status(204).end();
+  } catch (e) { next(e); }
+}

@@ -2,74 +2,35 @@
 /**
  * seeds/create-admin.js
  *
- * Crea el usuario admin en la base de datos.
- * Uso: node seeds/create-admin.js
+ * Upserts the admin user in the database.
+ * Usage: node seeds/create-admin.js
  *
- * Variables de entorno requeridas (o en .env):
- *   DATABASE_URL  — connection string de PostgreSQL
+ * Env vars (or .env):
+ *   DATABASE_URL    — PostgreSQL connection string
+ *   ADMIN_EMAIL     — defaults to admin@fitnow.com
+ *   ADMIN_PASSWORD  — defaults to Admin1234!
+ *   ADMIN_NAME      — defaults to Admin FitNow
  */
 
 import 'dotenv/config';
-import pg      from 'pg';
-import bcrypt  from 'bcryptjs';
+import bcrypt from 'bcryptjs';
+import pg from 'pg';
 
 const { Pool } = pg;
 
-const ADMIN = {
-  name:     'Admin FitNow',
-  email:    'admin@fitnow.com',
-  password: 'Admin1234!',
-  role:     'admin',
-};
+const EMAIL    = process.env.ADMIN_EMAIL    || 'admin@fitnow.com';
+const PASSWORD = process.env.ADMIN_PASSWORD || 'Admin1234!';
+const NAME     = process.env.ADMIN_NAME     || 'Admin FitNow';
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL?.includes('supabase.co')
-    ? { rejectUnauthorized: false }
-    : undefined,
-});
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const hash = await bcrypt.hash(PASSWORD, 12);
 
-async function run() {
-  const client = await pool.connect();
-  try {
-    // Check if user already exists
-    const existing = await client.query(
-      `SELECT id, email FROM users WHERE email = $1 LIMIT 1`,
-      [ADMIN.email]
-    );
+await pool.query(
+  `INSERT INTO users (name, email, password_hash, role)
+   VALUES ($1, $2, $3, 'admin')
+   ON CONFLICT (email) DO UPDATE SET role = 'admin', password_hash = $4`,
+  [NAME, EMAIL, hash, hash]
+);
 
-    if (existing.rows.length > 0) {
-      console.log(`✓ Usuario admin ya existe (id=${existing.rows[0].id}). Actualizando rol…`);
-      await client.query(
-        `UPDATE users SET role = $1, updated_at = NOW() WHERE email = $2`,
-        [ADMIN.role, ADMIN.email]
-      );
-      console.log(`✓ Rol actualizado a '${ADMIN.role}'.`);
-      return;
-    }
-
-    const hash = await bcrypt.hash(ADMIN.password, 12);
-    const result = await client.query(
-      `INSERT INTO users (name, email, password_hash, role)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id, name, email, role`,
-      [ADMIN.name, ADMIN.email, hash, ADMIN.role]
-    );
-
-    const user = result.rows[0];
-    console.log(`✓ Usuario admin creado exitosamente:`);
-    console.log(`  id:    ${user.id}`);
-    console.log(`  name:  ${user.name}`);
-    console.log(`  email: ${user.email}`);
-    console.log(`  role:  ${user.role}`);
-    console.log(`\n  Password: ${ADMIN.password}  (guardada como hash bcrypt)`);
-  } finally {
-    client.release();
-    await pool.end();
-  }
-}
-
-run().catch((err) => {
-  console.error('Error:', err.message);
-  process.exit(1);
-});
+console.log(`Admin upserted: ${EMAIL} / ${PASSWORD}`);
+await pool.end();

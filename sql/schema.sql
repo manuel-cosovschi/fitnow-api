@@ -323,10 +323,11 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT;
 -- ─────────────────────────────────────────────────────────────────────────────
 -- activities: new provider-configurable flags
 -- ─────────────────────────────────────────────────────────────────────────────
-ALTER TABLE activities ADD COLUMN IF NOT EXISTS enable_running    BOOLEAN       NOT NULL DEFAULT FALSE;
-ALTER TABLE activities ADD COLUMN IF NOT EXISTS enable_deposit    BOOLEAN       NOT NULL DEFAULT FALSE;
-ALTER TABLE activities ADD COLUMN IF NOT EXISTS deposit_percent   SMALLINT      NOT NULL DEFAULT 50;
-ALTER TABLE activities ADD COLUMN IF NOT EXISTS has_capacity_limit BOOLEAN      NOT NULL DEFAULT FALSE;
+ALTER TABLE activities ADD COLUMN IF NOT EXISTS enable_running     BOOLEAN  NOT NULL DEFAULT FALSE;
+ALTER TABLE activities ADD COLUMN IF NOT EXISTS enable_deposit     BOOLEAN  NOT NULL DEFAULT FALSE;
+ALTER TABLE activities ADD COLUMN IF NOT EXISTS deposit_percent    SMALLINT NOT NULL DEFAULT 50;
+ALTER TABLE activities ADD COLUMN IF NOT EXISTS has_capacity_limit BOOLEAN  NOT NULL DEFAULT FALSE;
+ALTER TABLE activities ADD COLUMN IF NOT EXISTS enable_files       BOOLEAN  NOT NULL DEFAULT FALSE;
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- enrollments: plan and payment fields
@@ -365,3 +366,20 @@ ALTER TABLE offers ADD COLUMN IF NOT EXISTS discount_percent  INT         CHECK 
 ALTER TABLE offers ADD COLUMN IF NOT EXISTS valid_from        TIMESTAMPTZ;
 ALTER TABLE offers ADD COLUMN IF NOT EXISTS rejection_reason  TEXT;
 ALTER TABLE offers ADD COLUMN IF NOT EXISTS updated_at        TIMESTAMPTZ DEFAULT NOW();
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- activity_posts (Activity Hub)
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS activity_posts (
+  id          SERIAL       PRIMARY KEY,
+  activity_id INT          NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+  provider_id INT          NOT NULL REFERENCES providers(id)  ON DELETE CASCADE,
+  type        VARCHAR(20)  NOT NULL CHECK (type IN ('announcement','file','news','quiz')),
+  title       VARCHAR(300) NOT NULL,
+  body        TEXT,
+  file_url    VARCHAR(500),
+  file_name   VARCHAR(200),
+  created_at  TIMESTAMPTZ  DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ  DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_activity_posts_activity ON activity_posts(activity_id);
