@@ -81,3 +81,30 @@ export async function countManyByUser(userId, { when = 'all' } = {}) {
   );
   return row?.total ?? 0;
 }
+
+export async function findManyByProvider(providerId, { limit = 20, offset = 0 } = {}) {
+  return query(
+    `SELECT e.id, e.user_id, u.name AS user_name,
+            e.activity_id, a.title AS activity_title,
+            COALESCE(e.price_paid, a.price) AS price_paid,
+            e.status, e.created_at
+     FROM enrollments e
+     JOIN activities a ON a.id = e.activity_id
+     JOIN users      u ON u.id = e.user_id
+     WHERE a.provider_id = ?
+     ORDER BY e.created_at DESC
+     LIMIT ? OFFSET ?`,
+    [providerId, limit, offset]
+  );
+}
+
+export async function countManyByProvider(providerId) {
+  const row = await queryOne(
+    `SELECT COUNT(*) AS total
+     FROM enrollments e
+     JOIN activities a ON a.id = e.activity_id
+     WHERE a.provider_id = ?`,
+    [providerId]
+  );
+  return row?.total ?? 0;
+}

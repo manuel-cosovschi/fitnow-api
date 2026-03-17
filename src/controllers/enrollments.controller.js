@@ -14,6 +14,15 @@ export async function listMine(req, res, next) {
   } catch (err) { next(err); }
 }
 
+export async function listByProvider(req, res, next) {
+  try {
+    if (!req.user.provider_id) {
+      return res.status(403).json({ code: 'NO_PROVIDER', message: 'No tenés proveedor asignado.' });
+    }
+    res.json(await enrollService.listByProvider(req.user.provider_id, req.query));
+  } catch (err) { next(err); }
+}
+
 export async function cancel(req, res, next) {
   try {
     res.json(await enrollService.cancel(req.user.id, Number(req.params.id)));
