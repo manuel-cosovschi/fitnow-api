@@ -63,3 +63,10 @@ export const generateRoutesSchema = z.object({
   origin_lng:  z.number().min(-180).max(180),
   distance_m:  z.number().int().min(500).max(100000),
 });
+
+export const rerouteSchema = z.object({
+  instruction:             z.string().trim().min(1).max(500),
+  current_lat:             z.number().min(-90).max(90),
+  current_lng:             z.number().min(-180).max(180),
+  remaining_distance_km:   z.coerce.number().min(0).max(200).optional().nullable(),
+});

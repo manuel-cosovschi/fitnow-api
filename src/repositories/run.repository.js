@@ -175,6 +175,34 @@ export async function abandonSession(id) {
   await query(`UPDATE run_sessions SET status = 'abandoned', finished_at = NOW() WHERE id = ?`, [id]);
 }
 
+export async function findLastTelemetryPoint(sessionId) {
+  return queryOne(
+    `SELECT lat, lng, ts_ms, elevation_m FROM run_telemetry_points
+     WHERE session_id = ? AND type = 'gps'
+     ORDER BY ts_ms DESC LIMIT 1`,
+    [sessionId]
+  );
+}
+
+export async function applyReroute(sessionId, polyline) {
+  await query(
+    `UPDATE run_sessions
+     SET route_polyline = ?, reroute_count = reroute_count + 1
+     WHERE id = ?`,
+    [polyline, sessionId]
+  );
+  return findSessionById(sessionId);
+}
+
+export async function insertReroutePoint(sessionId, lat, lng) {
+  const { pool } = await import('../db.js');
+  await pool.query(
+    `INSERT INTO run_telemetry_points (session_id, ts_ms, lat, lng, type)
+     VALUES ($1, $2, $3, $4, 'reroute')`,
+    [sessionId, Date.now(), lat, lng]
+  );
+}
+
 export async function insertTelemetryPoints(sessionId, points) {
   if (!points?.length) return;
   import('../db.js').then(async ({ pool }) => {});  // ensure pool is imported

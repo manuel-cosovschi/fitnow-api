@@ -1,5 +1,6 @@
 // src/controllers/run.controller.js
-import * as runService from '../services/run.service.js';
+import * as runService    from '../services/run.service.js';
+import * as rerouteService from '../services/reroute.service.js';
 import { generateRoutes } from '../services/routeGenerator.service.js';
 import { Errors } from '../utils/errors.js';
 
@@ -106,5 +107,17 @@ export async function submitFeedback(req, res, next) {
 export async function getRouteFeedback(req, res, next) {
   try {
     res.json(await runService.getRouteFeedback(Number(req.params.id), req.query));
+  } catch (err) { next(err); }
+}
+
+// ── Reroute ───────────────────────────────────────────────────────────────────
+export async function rerouteSession(req, res, next) {
+  try {
+    const result = await rerouteService.rerouteSession(
+      Number(req.params.id),
+      req.user.id,
+      req.body,
+    );
+    res.json(result);
   } catch (err) { next(err); }
 }

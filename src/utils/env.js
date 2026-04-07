@@ -22,4 +22,9 @@ export function validateEnv() {
   if (process.env.NODE_ENV === 'production' && WEAK_SECRETS.has(process.env.JWT_SECRET)) {
     throw new Error('[ENV] JWT_SECRET tiene un valor inseguro. Cambialo antes de ir a producción.');
   }
+
+  if (!process.env.ANTHROPIC_API_KEY) {
+    // Non-fatal: reroute endpoint will return 500 if called without this key
+    console.warn('[ENV] ANTHROPIC_API_KEY no configurado — el endpoint /reroute no estará disponible.');
+  }
 }

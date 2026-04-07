@@ -383,3 +383,13 @@ CREATE TABLE IF NOT EXISTS activity_posts (
   updated_at  TIMESTAMPTZ  DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_activity_posts_activity ON activity_posts(activity_id);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- run_sessions: reroute support
+-- ─────────────────────────────────────────────────────────────────────────────
+ALTER TABLE run_sessions ADD COLUMN IF NOT EXISTS route_polyline TEXT;
+ALTER TABLE run_sessions ADD COLUMN IF NOT EXISTS reroute_count  INT NOT NULL DEFAULT 0;
+
+-- run_telemetry_points: type column for special events (reroute, pause, etc.)
+ALTER TABLE run_telemetry_points ADD COLUMN IF NOT EXISTS type VARCHAR(20) NOT NULL DEFAULT 'gps'
+  CHECK (type IN ('gps','reroute','pause','resume'));
