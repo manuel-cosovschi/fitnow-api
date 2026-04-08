@@ -383,3 +383,118 @@ CREATE TABLE IF NOT EXISTS activity_posts (
   updated_at  TIMESTAMPTZ  DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_activity_posts_activity ON activity_posts(activity_id);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Gamification: XP, levels, badges
+-- ─────────────────────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS user_xp_log (
+  id          BIGSERIAL    PRIMARY KEY,
+  user_id     INT          NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  xp          INT          NOT NULL,
+  source      VARCHAR(40)  NOT NULL,
+  ref_type    VARCHAR(40),
+  ref_id      INT,
+  note        VARCHAR(200),
+  created_at  TIMESTAMPTZ  DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_xplog_user    ON user_xp_log(user_id);
+CREATE INDEX IF NOT EXISTS idx_xplog_source  ON user_xp_log(source);
+CREATE INDEX IF NOT EXISTS idx_xplog_created ON user_xp_log(created_at);
+
+CREATE TABLE IF NOT EXISTS user_levels (
+  user_id     INT          PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  total_xp    INT          NOT NULL DEFAULT 0,
+  level       INT          NOT NULL DEFAULT 1,
+  streak_days INT          NOT NULL DEFAULT 0,
+  last_active DATE,
+  updated_at  TIMESTAMPTZ  DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS badges (
+  id          SERIAL       PRIMARY KEY,
+  code        VARCHAR(60)  NOT NULL UNIQUE,
+  name        VARCHAR(120) NOT NULL,
+  description VARCHAR(300) NOT NULL,
+  icon        VARCHAR(100) NOT NULL,
+  category    VARCHAR(40)  NOT NULL DEFAULT 'general',
+  threshold   INT          NOT NULL DEFAULT 0,
+  created_at  TIMESTAMPTZ  DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS user_badges (
+  id          SERIAL       PRIMARY KEY,
+  user_id     INT          NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  badge_id    INT          NOT NULL REFERENCES badges(id) ON DELETE CASCADE,
+  earned_at   TIMESTAMPTZ  DEFAULT NOW(),
+  UNIQUE(user_id, badge_id)
+);
+CREATE INDEX IF NOT EXISTS idx_ubadges_user ON user_badges(user_id);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Gym sessions (AI Workout Navigator)
+-- ─────────────────────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS gym_sessions (
+  id               SERIAL       PRIMARY KEY,
+  user_id          INT          NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  activity_id      INT          REFERENCES activities(id) ON DELETE SET NULL,
+  started_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+  finished_at      TIMESTAMPTZ,
+  status           VARCHAR(20)  NOT NULL DEFAULT 'active'
+                     CHECK (status IN ('active','completed','abandoned')),
+  goal             TEXT,
+  time_available_min INT,
+  equipment_available TEXT,
+  muscle_groups    TEXT[],
+  ai_plan          JSONB,
+  reroute_count    SMALLINT     NOT NULL DEFAULT 0,
+  total_sets       INT          NOT NULL DEFAULT 0,
+  total_reps       INT          NOT NULL DEFAULT 0,
+  total_volume_kg  DECIMAL(10,2) NOT NULL DEFAULT 0,
+  duration_s       INT,
+  notes            TEXT,
+  created_at       TIMESTAMPTZ  DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_gymsess_user   ON gym_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_gymsess_status ON gym_sessions(status);
+
+CREATE TABLE IF NOT EXISTS gym_session_sets (
+  id             BIGSERIAL    PRIMARY KEY,
+  session_id     INT          NOT NULL REFERENCES gym_sessions(id) ON DELETE CASCADE,
+  exercise_name  VARCHAR(120) NOT NULL,
+  muscle_group   VARCHAR(50),
+  set_number     SMALLINT     NOT NULL,
+  planned_reps   SMALLINT,
+  planned_weight DECIMAL(6,2),
+  actual_reps    SMALLINT,
+  actual_weight  DECIMAL(6,2),
+  rpe            SMALLINT,
+  rest_s         SMALLINT,
+  completed      BOOLEAN      NOT NULL DEFAULT FALSE,
+  notes          TEXT,
+  created_at     TIMESTAMPTZ  DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_gymsets_session ON gym_session_sets(session_id);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Training plans (AI-generated)
+-- ─────────────────────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS training_plans (
+  id          SERIAL       PRIMARY KEY,
+  user_id     INT          NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title       VARCHAR(200) NOT NULL,
+  goal        VARCHAR(100) NOT NULL,
+  duration_weeks INT       NOT NULL,
+  difficulty  VARCHAR(10)  NOT NULL DEFAULT 'media'
+                CHECK (difficulty IN ('baja','media','alta')),
+  plan_data   JSONB        NOT NULL,
+  status      VARCHAR(20)  NOT NULL DEFAULT 'active'
+                CHECK (status IN ('active','completed','cancelled')),
+  started_at  TIMESTAMPTZ  DEFAULT NOW(),
+  created_at  TIMESTAMPTZ  DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ  DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_tplans_user   ON training_plans(user_id);
+CREATE INDEX IF NOT EXISTS idx_tplans_status ON training_plans(status);

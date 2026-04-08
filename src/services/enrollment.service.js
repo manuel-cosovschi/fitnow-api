@@ -1,9 +1,11 @@
 // src/services/enrollment.service.js
 import * as enrollRepo from '../repositories/enrollment.repository.js';
 import * as actRepo    from '../repositories/activity.repository.js';
+import * as gamificationService from './gamification.service.js';
 import { transaction }  from '../db.js';
 import { parsePagination, paginatedResponse } from '../utils/paginate.js';
 import { Errors } from '../utils/errors.js';
+import logger from '../utils/logger.js';
 
 export async function enroll(userId, { activity_id, session_id, plan_name, plan_price, payment_type, payment_method }) {
   if (!activity_id) throw Errors.badRequest('activity_id requerido.');
@@ -15,7 +17,7 @@ export async function enroll(userId, { activity_id, session_id, plan_name, plan_
   const dup = await enrollRepo.findDuplicate(userId, activity_id);
   if (dup) throw Errors.conflict('ALREADY_ENROLLED', 'Ya estás inscripto en esta actividad.');
 
-  return transaction(async (conn) => {
+  const enrollment = await transaction(async (conn) => {
     if (session_id) {
       const session = await actRepo.findSessionByIdForUpdate(conn, session_id);
       if (!session || session.activity_id !== Number(activity_id))
@@ -43,6 +45,19 @@ export async function enroll(userId, { activity_id, session_id, plan_name, plan_
       payment_method: payment_method ?? 'card',
     });
   });
+
+  try {
+    await gamificationService.awardXp(userId, {
+      xp: gamificationService.XP_TABLE.enrollment,
+      source: 'enrollment',
+      ref_type: 'enrollment',
+      ref_id: enrollment.id,
+    });
+  } catch (err) {
+    logger.warn(`Gamification error (enroll ${enrollment.id}): ${err.message}`);
+  }
+
+  return enrollment;
 }
 
 export async function listMine(userId, queryParams) {

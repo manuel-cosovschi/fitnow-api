@@ -1,9 +1,11 @@
 // src/services/run.service.js
 import * as runRepo from '../repositories/run.repository.js';
 import * as aiRepo  from '../repositories/ai.repository.js';
+import * as gamificationService from './gamification.service.js';
 import { parsePagination, paginatedResponse } from '../utils/paginate.js';
 import { normalize } from '../utils/geo.js';
 import { Errors } from '../utils/errors.js';
+import logger from '../utils/logger.js';
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 
@@ -150,7 +152,23 @@ export async function finishSession(sessionId, userId, stats) {
     min_elevation_m: stats.min_elevation_m ?? null,
   };
 
-  return runRepo.finishSession(sessionId, summary);
+  const result = await runRepo.finishSession(sessionId, summary);
+
+  try {
+    const xp = gamificationService.XP_TABLE.run_session_base +
+      Math.floor((summary.distance_m || 0) / 1000) * gamificationService.XP_TABLE.run_session_per_km;
+    await gamificationService.awardXp(userId, {
+      xp,
+      source: 'run_session',
+      ref_type: 'run_session',
+      ref_id: sessionId,
+      note: `Sesión de running: ${summary.distance_m || 0}m`,
+    });
+  } catch (err) {
+    logger.warn(`Gamification error (finishSession ${sessionId}): ${err.message}`);
+  }
+
+  return result;
 }
 
 export async function abandonSession(sessionId, userId) {
@@ -185,7 +203,7 @@ export async function submitFeedback(userId, routeId, fields) {
   const { rating, notes, fatigue_level, perceived_difficulty, session_id } = fields;
   if (!rating || rating < 1 || rating > 5) throw Errors.badRequest('rating debe ser entre 1 y 5.');
 
-  return runRepo.createFeedback({
+  const feedback = await runRepo.createFeedback({
     user_id:              userId,
     route_id:             routeId,
     session_id:           session_id           ? Number(session_id)           : null,
@@ -194,6 +212,19 @@ export async function submitFeedback(userId, routeId, fields) {
     fatigue_level:        fatigue_level        ? Number(fatigue_level)        : null,
     perceived_difficulty: perceived_difficulty ? Number(perceived_difficulty) : null,
   });
+
+  try {
+    await gamificationService.awardXp(userId, {
+      xp: gamificationService.XP_TABLE.route_feedback,
+      source: 'route_feedback',
+      ref_type: 'run_feedback',
+      ref_id: feedback.id,
+    });
+  } catch (err) {
+    logger.warn(`Gamification error (submitFeedback ${feedback.id}): ${err.message}`);
+  }
+
+  return feedback;
 }
 
 export async function getRouteFeedback(routeId, queryParams) {

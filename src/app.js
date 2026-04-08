@@ -18,7 +18,11 @@ import adminRoutes     from './routes/admin.routes.js';
 import accountRoutes   from './routes/account.routes.js';
 import filesRoutes     from './routes/files.routes.js';
 import sessionsRoutes  from './routes/sessions.routes.js';
-import offersRoutes    from './routes/offers.routes.js';
+import offersRoutes         from './routes/offers.routes.js';
+import gamificationRoutes   from './routes/gamification.routes.js';
+import gymRoutes            from './routes/gym.routes.js';
+import analyticsRoutes      from './routes/analytics.routes.js';
+import trainingPlanRoutes   from './routes/trainingPlan.routes.js';
 
 const app = express();
 
@@ -92,6 +96,10 @@ app.use('/api/admin',       adminRoutes);
 app.use('/api/offers',      offersRoutes);
 app.use('/api/account',     accountRoutes);
 app.use('/api/files',       filesRoutes);
+app.use('/api/gamification',   gamificationRoutes);
+app.use('/api/gym',            gymRoutes);
+app.use('/api/analytics',      analyticsRoutes);
+app.use('/api/training-plans', trainingPlanRoutes);
 // Mounted at /api (not a sub-prefix) so it can serve both
 // GET  /api/activities/:id/sessions  and
 // POST /api/sessions/:sid/book

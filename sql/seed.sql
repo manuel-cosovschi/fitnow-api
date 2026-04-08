@@ -140,3 +140,27 @@ SELECT p.id, s.id, 'club_sport', 'active',
 FROM providers p, sports s
 WHERE p.name = 'Club Atlético Palermo' AND s.name = 'Ciclismo'
   AND NOT EXISTS (SELECT 1 FROM activities WHERE title = 'Ciclismo Grupal — Ruta del Río');
+
+-- ─────────────────────────────────────────────
+-- Badges (gamification)
+-- ─────────────────────────────────────────────
+
+INSERT INTO badges (code, name, description, icon, category, threshold) VALUES
+  ('first_step',       'Primer Paso',      'Completaste tu primera sesión.',                    'footprints',   'general',  0),
+  ('marathoner',       'Maratonista',       'Acumulaste 42.195 km corriendo.',                  'trophy',       'running',  42195),
+  ('centurion',        'Centurión',         'Completaste 100 sesiones.',                        'shield',       'general',  100),
+  ('explorer',         'Explorador',        'Corriste 10 rutas distintas.',                     'compass',      'running',  10),
+  ('guardian',          'Guardián',          'Reportaste 5 peligros confirmados.',               'shield-alert', 'social',   5),
+  ('on_fire_7',        'En Llamas',         'Racha de 7 días consecutivos.',                    'flame',        'streak',   7),
+  ('on_fire_30',       'Imparable',         'Racha de 30 días consecutivos.',                   'fire',         'streak',   30),
+  ('gym_rat',          'Rata de Gym',       'Completaste 20 sesiones de gimnasio.',             'dumbbell',     'gym',      20),
+  ('social_runner',    'Social',            'Completaste 3 retos grupales.',                    'users',        'social',   3),
+  ('critic',           'Crítico',           'Diste feedback en 10 rutas.',                      'message-star', 'running',  10),
+  ('machine',          'Máquina',           'Sesión de gym con 20+ sets.',                      'zap',          'gym',      20),
+  ('level_10',         'Atleta Dedicado',   'Alcanzaste el nivel 10.',                          'award',        'general',  10),
+  ('level_25',         'Elite',             'Alcanzaste el nivel 25.',                          'crown',        'general',  25),
+  ('level_50',         'Leyenda',           'Alcanzaste el nivel 50.',                          'star',         'general',  50),
+  ('first_gym',        'Primera Pesa',      'Completaste tu primera sesión de gym.',            'dumbbell',     'gym',      0),
+  ('distance_100km',   '100K Runner',       'Acumulaste 100 km corriendo.',                     'map-pin',      'running',  100000),
+  ('volume_10000',     'Tonelada',          'Levantaste 10.000 kg de volumen total en gym.',    'weight',       'gym',      10000)
+ON CONFLICT (code) DO NOTHING;

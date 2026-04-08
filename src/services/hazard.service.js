@@ -1,7 +1,9 @@
 // src/services/hazard.service.js
 import * as hazardRepo from '../repositories/hazard.repository.js';
+import * as gamificationService from './gamification.service.js';
 import { parsePagination, paginatedResponse } from '../utils/paginate.js';
 import { Errors } from '../utils/errors.js';
+import logger from '../utils/logger.js';
 
 export async function create(userId, { lat, lng, type, note, severity }) {
   if (!lat || !lng)  throw Errors.badRequest('lat y lng son requeridos.');
@@ -9,7 +11,7 @@ export async function create(userId, { lat, lng, type, note, severity }) {
 
   const sev = Math.min(3, Math.max(1, Number(severity ?? 1)));
 
-  return hazardRepo.create({
+  const hazard = await hazardRepo.create({
     user_id:  userId,
     lat:      Number(lat),
     lng:      Number(lng),
@@ -17,6 +19,19 @@ export async function create(userId, { lat, lng, type, note, severity }) {
     note:     note?.trim() ?? null,
     severity: sev,
   });
+
+  try {
+    await gamificationService.awardXp(userId, {
+      xp: gamificationService.XP_TABLE.hazard_report,
+      source: 'hazard_report',
+      ref_type: 'hazard',
+      ref_id: hazard.id,
+    });
+  } catch (err) {
+    logger.warn(`Gamification error (hazard create ${hazard.id}): ${err.message}`);
+  }
+
+  return hazard;
 }
 
 export async function findNear(queryParams) {
