@@ -10,6 +10,7 @@ import { fileURLToPath } from 'url';
 import os from 'os';
 
 import { validateEnv } from './utils/env.js';
+import { assertDbHostReachable } from './utils/dbConnection.js';
 import logger from './utils/logger.js';
 
 // Validate required env vars before loading anything else
@@ -43,6 +44,7 @@ function getLocalIp() {
 
 async function bootstrap() {
   try {
+    await assertDbHostReachable(process.env.DATABASE_URL);
     await pool.query('SELECT 1 + 1 AS ok');
     logger.info('PostgreSQL pool conectado.');
 
