@@ -1,10 +1,9 @@
 // src/db.js — PostgreSQL (Supabase) via pg
 import pg from 'pg';
-import dns from 'dns';
 import 'dotenv/config';
 
-// Force IPv4 — Render free tier has no IPv6 connectivity
-dns.setDefaultResultOrder('ipv4first');
+// Side-effect import: forces ipv4first DNS resolution for this process.
+import './utils/dbConnection.js';
 
 // Parse bigint (OID 20) as JS number so COUNT(*) returns a number, not a string
 pg.types.setTypeParser(20, (val) => parseInt(val, 10));
@@ -13,8 +12,8 @@ const { Pool } = pg;
 
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  // Auto-enable SSL for Supabase; skip for local pg
-  ssl: process.env.DATABASE_URL?.includes('supabase.co')
+  // Auto-enable SSL for Supabase (direct OR pooler); skip for local pg.
+  ssl: /supabase\.(co|com)/.test(process.env.DATABASE_URL || '')
     ? { rejectUnauthorized: false }
     : undefined,
 });

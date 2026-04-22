@@ -2,13 +2,11 @@
 // Ejecuta los archivos SQL en orden al arrancar el servidor.
 
 import pg from 'pg';
-import dns from 'dns';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-// Force IPv4 — Render free tier has no IPv6 connectivity
-dns.setDefaultResultOrder('ipv4first');
+import { assertDbHostReachable } from './utils/dbConnection.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SQL_DIR   = path.join(__dirname, '..', 'sql');
@@ -35,6 +33,8 @@ function splitStatements(sql) {
 }
 
 export async function runMigrations() {
+  await assertDbHostReachable(process.env.DATABASE_URL);
+
   const client = new pg.Client({
     connectionString: process.env.DATABASE_URL,
     ssl: process.env.DATABASE_URL?.includes('supabase.co')
