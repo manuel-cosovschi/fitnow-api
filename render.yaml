@@ -1,24 +1,16 @@
 services:
   - type: web
     name: fitnow-api
-    runtime: docker
+    runtime: node
+    buildCommand: npm install
+    startCommand: npm start
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 3000
-      - key: DB_HOST
-        sync: false
-      - key: DB_USER
-        sync: false
-      - key: DB_PASSWORD
-        sync: false
-      - key: DB_NAME
+      - key: DATABASE_URL
         sync: false
       - key: JWT_SECRET
         generateValue: true
-      - key: JWT_EXPIRES_IN
-        value: 30d
-      - key: ALLOWED_ORIGINS
-        sync: false
