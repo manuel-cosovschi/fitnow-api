@@ -1,6 +1,10 @@
 // src/db.js — PostgreSQL (Supabase) via pg
 import pg from 'pg';
+import dns from 'dns';
 import 'dotenv/config';
+
+// Force IPv4 — Render free tier has no IPv6 connectivity
+dns.setDefaultResultOrder('ipv4first');
 
 // Parse bigint (OID 20) as JS number so COUNT(*) returns a number, not a string
 pg.types.setTypeParser(20, (val) => parseInt(val, 10));

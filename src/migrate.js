@@ -2,9 +2,13 @@
 // Ejecuta los archivos SQL en orden al arrancar el servidor.
 
 import pg from 'pg';
+import dns from 'dns';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+
+// Force IPv4 — Render free tier has no IPv6 connectivity
+dns.setDefaultResultOrder('ipv4first');
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SQL_DIR   = path.join(__dirname, '..', 'sql');
