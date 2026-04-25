@@ -1,14 +1,12 @@
 // src/routes/payments.routes.js
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
-import express from 'express';
 import * as ctrl from '../controllers/payments.controller.js';
 
 const router = Router();
 
-// Stripe
+// Stripe (webhook registered in app.js before express.json to preserve raw body)
 router.post('/stripe/intent',                   requireAuth, ctrl.stripeIntent);
-router.post('/stripe/webhook',                  express.raw({ type: 'application/json' }), ctrl.stripeWebhook);
 
 // MercadoPago
 router.post('/mercadopago/preference',          requireAuth, ctrl.mpPreference);

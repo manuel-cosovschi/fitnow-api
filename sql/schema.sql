@@ -435,6 +435,46 @@ CREATE INDEX IF NOT EXISTS idx_rt_token   ON refresh_tokens(token_hash);
 CREATE INDEX IF NOT EXISTS idx_rt_user_id ON refresh_tokens(user_id);
 
 -- ─────────────────────────────────────────────────────────────────────────────
+-- email_verification_tokens
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS email_verification_tokens (
+  id         SERIAL      PRIMARY KEY,
+  user_id    INT         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash CHAR(64)    NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at    TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_evt_token ON email_verification_tokens(token_hash);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- magic_link_tokens
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS magic_link_tokens (
+  id         SERIAL      PRIMARY KEY,
+  user_id    INT         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash CHAR(64)    NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at    TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_mlt_token ON magic_link_tokens(token_hash);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- two_factor_codes
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS two_factor_codes (
+  id         SERIAL      PRIMARY KEY,
+  user_id    INT         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  code       VARCHAR(10) NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at    TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_tfc_user ON two_factor_codes(user_id);
+
+-- ─────────────────────────────────────────────────────────────────────────────
 -- payments
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS payments (

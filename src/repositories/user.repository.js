@@ -100,6 +100,13 @@ export async function countMany({ q, role } = {}) {
   return row?.total ?? 0;
 }
 
+export async function updateRole(id, role) {
+  await query(
+    `UPDATE users SET role = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+    [role, id]
+  );
+}
+
 export async function setBanned(id, is_banned) {
   await query(
     `UPDATE users SET is_banned = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
