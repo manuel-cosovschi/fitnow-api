@@ -1,7 +1,7 @@
 // src/repositories/user.repository.js
 import { query, queryOne } from '../db.js';
 
-const PUBLIC_COLS = 'id, name, email, role, provider_id, phone, bio, units, language, photo_url, pref_goal_km, pref_surface, created_at, updated_at';
+const PUBLIC_COLS = 'id, name, email, role, provider_id, phone, bio, units, language, photo_url, pref_goal_km, pref_surface, is_banned, created_at, updated_at';
 
 export async function findById(id) {
   return queryOne(`SELECT ${PUBLIC_COLS} FROM users WHERE id = ? AND deleted_at IS NULL LIMIT 1`, [id]);
