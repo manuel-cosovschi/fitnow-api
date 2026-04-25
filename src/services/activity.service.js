@@ -117,3 +117,13 @@ export async function deletePost(activityId, postId, requestingUser) {
   }
   await actRepo.deletePost(postId);
 }
+
+export async function listReviews(activityId) {
+  const activity = await actRepo.findById(activityId);
+  if (!activity) throw Errors.notFound('Actividad no encontrada.');
+  const [items, total] = await Promise.all([
+    actRepo.findReviews(activityId),
+    actRepo.countReviews(activityId),
+  ]);
+  return { items, total };
+}

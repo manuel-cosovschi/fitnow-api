@@ -8,6 +8,7 @@ export async function findMany({ where = [], params = [], orderBy = 'a.date_star
             a.location, a.lat, a.lng, a.price, a.capacity, a.seats_left,
             a.date_start, a.date_end, a.created_at,
             a.enable_running, a.enable_deposit, a.deposit_percent, a.has_capacity_limit, a.enable_files,
+            a.image_urls, a.cancellation_policy, a.rating, a.review_count,
             p.id AS provider_id, p.name AS provider_name, p.logo_url AS provider_logo,
             s.id AS sport_id, s.name AS sport_name
      FROM activities a
@@ -63,33 +64,64 @@ export async function create(fields) {
           location, lat, lng, price, capacity, date_start, date_end, rules,
           provider_id, sport_id,
           enable_running = false, enable_deposit = false, deposit_percent = 50,
-          has_capacity_limit = false, enable_files = false } = fields;
+          has_capacity_limit = false, enable_files = false,
+          image_urls = null, cancellation_policy = null } = fields;
   const result = await query(
     `INSERT INTO activities
        (title, description, modality, difficulty, kind, status, location, lat, lng,
         price, capacity, seats_left, date_start, date_end, rules, provider_id, sport_id,
-        enable_running, enable_deposit, deposit_percent, has_capacity_limit, enable_files)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        enable_running, enable_deposit, deposit_percent, has_capacity_limit, enable_files,
+        image_urls, cancellation_policy)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [title, description ?? null, modality, difficulty, kind, status,
      location ?? null, lat ?? null, lng ?? null,
      price ?? 0, capacity ?? 20, capacity ?? 20,
      date_start ?? null, date_end ?? null,
      rules ? JSON.stringify(rules) : null,
      provider_id ?? null, sport_id ?? null,
-     enable_running, enable_deposit, deposit_percent, has_capacity_limit, enable_files]
+     enable_running, enable_deposit, deposit_percent, has_capacity_limit, enable_files,
+     image_urls ?? null, cancellation_policy ?? null]
   );
   return findById(result.insertId);
 }
 
 export async function update(id, fields) {
   const allowed = ['title','description','modality','difficulty','kind','status',
-                   'location','lat','lng','price','capacity','date_start','date_end','rules'];
+                   'location','lat','lng','price','capacity','date_start','date_end','rules',
+                   'image_urls','cancellation_policy'];
   const payload = Object.fromEntries(Object.entries(fields).filter(([k]) => allowed.includes(k)));
   if (!Object.keys(payload).length) return findById(id);
   if (payload.rules) payload.rules = JSON.stringify(payload.rules);
   const sets = Object.keys(payload).map((k) => `${k} = ?`).join(', ');
   await query(`UPDATE activities SET ${sets}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [...Object.values(payload), id]);
   return findById(id);
+}
+
+export async function updateRatingStats(id) {
+  await query(
+    `UPDATE activities SET
+       rating       = COALESCE((SELECT ROUND(AVG(rating)::numeric, 2) FROM activity_reviews WHERE activity_id = ?), 0),
+       review_count = COALESCE((SELECT COUNT(*) FROM activity_reviews WHERE activity_id = ?), 0),
+       updated_at   = NOW()
+     WHERE id = ?`,
+    [id, id, id]
+  );
+}
+
+export async function findReviews(activityId) {
+  return query(
+    `SELECT ar.id, u.name AS user_name, ar.rating, ar.comment, ar.created_at
+     FROM activity_reviews ar
+     JOIN users u ON u.id = ar.user_id
+     WHERE ar.activity_id = ?
+     ORDER BY ar.created_at DESC`,
+    [activityId]
+  );
+}
+
+export async function countReviews(activityId) {
+  const row = await queryOne(`SELECT COUNT(*) AS total FROM activity_reviews WHERE activity_id = ?`, [activityId]);
+  return row?.total ?? 0;
 }
 
 export async function updateSettings(id, fields) {

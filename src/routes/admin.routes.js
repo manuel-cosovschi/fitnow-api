@@ -13,11 +13,13 @@ router.post('/ai/weights',              requireAuth, requireRole('admin'), ctrl.
 router.get ('/stats',                   requireAuth, requireRole('admin'), ctrl.getStats);
 
 // User management
-router.get ('/users',                   requireAuth, requireRole('admin'), ctrl.listUsers);
-router.patch('/users/:id/role',         requireAuth, requireRole('admin'), ctrl.assignProviderRole);
+router.get  ('/users',           requireAuth, requireRole('admin'), ctrl.listUsers);
+router.patch('/users/:id/role',  requireAuth, requireRole('admin'), ctrl.assignProviderRole);
+router.patch('/users/:id',       requireAuth, requireRole('admin'), ctrl.patchUser);
 
 // Providers
-router.get ('/providers',               requireAuth, requireRole('admin'), ctrl.listProviders);
+router.get  ('/providers',       requireAuth, requireRole('admin'), ctrl.listProviders);
+router.patch('/providers/:id',   requireAuth, requireRole('admin'), ctrl.patchProvider);
 
 // Offers
 router.get ('/offers',                  requireAuth, requireRole('admin'), ctrl.listAdminOffers);

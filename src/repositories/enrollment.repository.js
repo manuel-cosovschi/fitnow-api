@@ -84,10 +84,12 @@ export async function countManyByUser(userId, { when = 'all' } = {}) {
 
 export async function findManyByProvider(providerId, { limit = 20, offset = 0 } = {}) {
   return query(
-    `SELECT e.id, e.user_id, u.name AS user_name,
+    `SELECT e.id, e.user_id, u.name AS athlete_name,
             e.activity_id, a.title AS activity_title,
+            e.plan_name, e.status, e.checked_in,
+            COALESCE(e.start_at, a.date_start) AS date_start,
             COALESCE(e.price_paid, a.price) AS price_paid,
-            e.status, e.created_at
+            e.created_at
      FROM enrollments e
      JOIN activities a ON a.id = e.activity_id
      JOIN users      u ON u.id = e.user_id
@@ -107,4 +109,23 @@ export async function countManyByProvider(providerId) {
     [providerId]
   );
   return row?.total ?? 0;
+}
+
+export async function findByIdWithDetails(id) {
+  return queryOne(
+    `SELECT e.*, u.name AS athlete_name, a.title AS activity_title
+     FROM enrollments e
+     JOIN users      u ON u.id = e.user_id
+     JOIN activities a ON a.id = e.activity_id
+     WHERE e.id = ? LIMIT 1`,
+    [id]
+  );
+}
+
+export async function checkin(id) {
+  await query(
+    `UPDATE enrollments SET checked_in = TRUE, checked_in_at = NOW() WHERE id = ?`,
+    [id]
+  );
+  return findByIdWithDetails(id);
 }

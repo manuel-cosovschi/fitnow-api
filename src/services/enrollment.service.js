@@ -66,6 +66,21 @@ export async function listByProvider(providerId, queryParams) {
   return paginatedResponse(items, { page, perPage, total });
 }
 
+export async function checkin(providerId, enrollmentId) {
+  const enrollment = await enrollRepo.findByIdWithDetails(enrollmentId);
+  if (!enrollment) throw Errors.notFound('Inscripción no encontrada.');
+  if (enrollment.checked_in) throw Errors.badRequest('Ya se realizó el check-in para esta inscripción.');
+
+  const result = await enrollRepo.checkin(enrollmentId);
+  return {
+    enrollment_id:  result.id,
+    athlete_name:   result.athlete_name,
+    activity_title: result.activity_title,
+    plan_name:      result.plan_name ?? null,
+    checked_in_at:  result.checked_in_at,
+  };
+}
+
 export async function cancel(userId, enrollmentId) {
   const enrollment = await enrollRepo.findById(enrollmentId);
   if (!enrollment) throw Errors.notFound('Inscripción no encontrada.');

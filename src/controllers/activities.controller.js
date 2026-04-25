@@ -62,6 +62,12 @@ export async function createPost(req, res, next) {
 export async function deletePost(req, res, next) {
   try {
     await actService.deletePost(Number(req.params.id), Number(req.params.postId), req.user);
-    res.status(204).end();
+    res.json({ status: 'ok' });
+  } catch (e) { next(e); }
+}
+
+export async function listReviews(req, res, next) {
+  try {
+    res.json(await actService.listReviews(Number(req.params.id)));
   } catch (e) { next(e); }
 }

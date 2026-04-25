@@ -4,12 +4,43 @@ import bcrypt from 'bcryptjs';
 import jwt    from 'jsonwebtoken';
 import * as userRepo from '../repositories/user.repository.js';
 import * as provRepo from '../repositories/provider.repository.js';
+import { query, queryOne } from '../db.js';
 import { Errors } from '../utils/errors.js';
 import * as mailer from '../utils/mailer.js';
 
-const SALT_ROUNDS = 12;
-const JWT_SECRET  = () => process.env.JWT_SECRET || 'dev_secret_change_me';
-const JWT_EXPIRES = () => process.env.JWT_EXPIRES_IN || '30d';
+const SALT_ROUNDS    = 12;
+const JWT_SECRET     = () => process.env.JWT_SECRET         || 'dev_secret_change_me';
+const JWT_EXPIRES    = () => process.env.JWT_EXPIRES_IN     || '15m';
+const REFRESH_SECRET = () => process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || 'dev_refresh_secret';
+const REFRESH_EXPIRES_IN = () => process.env.JWT_REFRESH_EXPIRES_IN || '30d';
+
+function refreshExpiryDate() {
+  const val = REFRESH_EXPIRES_IN();
+  const match = String(val).match(/^(\d+)([smhd])$/);
+  if (!match) return new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  const n = parseInt(match[1], 10);
+  const multipliers = { s: 1000, m: 60000, h: 3600000, d: 86400000 };
+  return new Date(Date.now() + n * multipliers[match[2]]);
+}
+
+async function createRefreshToken(userId) {
+  const raw  = crypto.randomBytes(40).toString('hex');
+  const hash = crypto.createHash('sha256').update(raw).digest('hex');
+  const exp  = refreshExpiryDate();
+  await query(
+    `INSERT INTO refresh_tokens (user_id, token_hash, expires_at) VALUES (?,?,?)`,
+    [userId, hash, exp]
+  );
+  return raw;
+}
+
+function signRefreshJwt(user) {
+  return jwt.sign(
+    { id: user.id },
+    REFRESH_SECRET(),
+    { expiresIn: REFRESH_EXPIRES_IN() }
+  );
+}
 
 export function signToken(user) {
   return jwt.sign(
@@ -17,6 +48,13 @@ export function signToken(user) {
     JWT_SECRET(),
     { expiresIn: JWT_EXPIRES() }
   );
+}
+
+function buildAuthResponse(user, withRefresh = true) {
+  const token         = signToken(user);
+  const refresh_token = withRefresh ? signRefreshJwt(user) : undefined;
+  const { password_hash: _ph, ...safeUser } = user;
+  return { token, refresh_token, user: { id: safeUser.id, name: safeUser.name, email: safeUser.email, role: safeUser.role, provider_id: safeUser.provider_id ?? null } };
 }
 
 export async function register({ name, email, password }) {
@@ -29,7 +67,7 @@ export async function register({ name, email, password }) {
 
   const hash = await bcrypt.hash(password, SALT_ROUNDS);
   const user  = await userRepo.create({ name: name.trim(), email: email.toLowerCase().trim(), password_hash: hash });
-  return { user, token: signToken(user) };
+  return buildAuthResponse(user);
 }
 
 export async function login({ email, password }) {
@@ -41,9 +79,96 @@ export async function login({ email, password }) {
   const ok = await bcrypt.compare(password, user.password_hash);
   if (!ok) throw Errors.unauthorized('Credenciales incorrectas.');
 
-  // Remover hash del objeto de respuesta
-  const { password_hash: _ph, ...safeUser } = user;
-  return { user: safeUser, token: signToken(user) };
+  return buildAuthResponse(user);
+}
+
+export async function refreshToken(rawToken) {
+  if (!rawToken) throw Errors.badRequest('refresh_token requerido.');
+  let payload;
+  try {
+    payload = jwt.verify(rawToken, REFRESH_SECRET());
+  } catch {
+    throw Errors.unauthorized('Refresh token inválido o expirado.');
+  }
+  const user = await userRepo.findById(payload.id);
+  if (!user) throw Errors.unauthorized('Usuario no encontrado.');
+  const token         = signToken(user);
+  const refresh_token = signRefreshJwt(user);
+  return { token, refresh_token };
+}
+
+export async function verifyEmail({ token }) {
+  if (!token) throw Errors.badRequest('Token requerido.');
+  const record = await queryOne(
+    `SELECT * FROM email_verification_tokens WHERE token_hash = ? AND used_at IS NULL AND expires_at > NOW() LIMIT 1`,
+    [crypto.createHash('sha256').update(token).digest('hex')]
+  );
+  if (!record) throw Errors.badRequest('Token inválido o expirado.');
+  await query(`UPDATE email_verification_tokens SET used_at = NOW() WHERE id = ?`, [record.id]);
+  await query(`UPDATE users SET email_verified = TRUE, updated_at = NOW() WHERE id = ?`, [record.user_id]);
+  return { status: 'ok' };
+}
+
+export async function magicLink({ token }) {
+  if (!token) throw Errors.badRequest('Token requerido.');
+  const record = await queryOne(
+    `SELECT * FROM magic_link_tokens WHERE token_hash = ? AND used_at IS NULL AND expires_at > NOW() LIMIT 1`,
+    [crypto.createHash('sha256').update(token).digest('hex')]
+  );
+  if (!record) throw Errors.unauthorized('Magic link inválido o expirado.');
+  await query(`UPDATE magic_link_tokens SET used_at = NOW() WHERE id = ?`, [record.id]);
+  const user = await userRepo.findById(record.user_id);
+  if (!user) throw Errors.notFound('Usuario no encontrado.');
+  return buildAuthResponse(user);
+}
+
+export async function verify2fa({ temp_token, code }) {
+  if (!temp_token || !code) throw Errors.badRequest('temp_token y code son requeridos.');
+  let payload;
+  try {
+    payload = jwt.verify(temp_token, JWT_SECRET() + '_2fa');
+  } catch {
+    throw Errors.unauthorized('temp_token inválido o expirado.');
+  }
+  const record = await queryOne(
+    `SELECT * FROM two_factor_codes WHERE user_id = ? AND code = ? AND used_at IS NULL AND expires_at > NOW() LIMIT 1`,
+    [payload.sub, code]
+  );
+  if (!record) throw Errors.unauthorized('Código 2FA inválido o expirado.');
+  await query(`UPDATE two_factor_codes SET used_at = NOW() WHERE id = ?`, [record.id]);
+  const user = await userRepo.findById(payload.sub);
+  if (!user) throw Errors.notFound('Usuario no encontrado.');
+  return buildAuthResponse(user);
+}
+
+export async function appleSignIn({ identity_token, name }) {
+  if (!identity_token) throw Errors.badRequest('identity_token requerido.');
+  let applePayload;
+  try {
+    const appleSignin = await import('apple-signin-auth');
+    applePayload = await appleSignin.default.verifyIdToken(identity_token, {
+      audience: process.env.APNS_BUNDLE_ID || 'com.fitnow.app',
+      ignoreExpiration: false,
+    });
+  } catch (err) {
+    throw Errors.unauthorized('Apple identity_token inválido.');
+  }
+  const appleSub = applePayload.sub;
+  const email    = applePayload.email || null;
+  let user = await queryOne(`SELECT * FROM users WHERE apple_sub = ? LIMIT 1`, [appleSub]);
+  if (!user && email) user = await userRepo.findByEmail(email);
+  if (!user) {
+    const displayName = name?.trim() || email?.split('@')[0] || 'FitNow User';
+    const result = await query(
+      `INSERT INTO users (name, email, apple_sub, provider, role) VALUES (?,?,?,'apple','user')`,
+      [displayName, email, appleSub]
+    );
+    user = await userRepo.findById(result.insertId);
+  } else if (!user.apple_sub) {
+    await query(`UPDATE users SET apple_sub = ?, updated_at = NOW() WHERE id = ?`, [appleSub, user.id]);
+    user = await userRepo.findById(user.id);
+  }
+  return buildAuthResponse(user);
 }
 
 export async function getMe(userId) {
