@@ -383,3 +383,309 @@ CREATE TABLE IF NOT EXISTS activity_posts (
   updated_at  TIMESTAMPTZ  DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_activity_posts_activity ON activity_posts(activity_id);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- activity_reviews
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS activity_reviews (
+  id          SERIAL      PRIMARY KEY,
+  activity_id INT         NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+  user_id     INT         NOT NULL REFERENCES users(id)      ON DELETE CASCADE,
+  rating      SMALLINT    NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  comment     TEXT,
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (user_id, activity_id)
+);
+CREATE INDEX IF NOT EXISTS idx_ar_activity ON activity_reviews(activity_id);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- activities: rating / review / image / policy fields
+-- ─────────────────────────────────────────────────────────────────────────────
+ALTER TABLE activities ADD COLUMN IF NOT EXISTS image_urls          TEXT[];
+ALTER TABLE activities ADD COLUMN IF NOT EXISTS cancellation_policy TEXT;
+ALTER TABLE activities ADD COLUMN IF NOT EXISTS rating              DECIMAL(3,2) DEFAULT 0;
+ALTER TABLE activities ADD COLUMN IF NOT EXISTS review_count        INT          DEFAULT 0;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- users: is_banned
+-- ─────────────────────────────────────────────────────────────────────────────
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_banned BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- enrollments: checkin + pending status
+-- ─────────────────────────────────────────────────────────────────────────────
+ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS checked_in    BOOLEAN     NOT NULL DEFAULT FALSE;
+ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS checked_in_at TIMESTAMPTZ;
+ALTER TABLE enrollments DROP CONSTRAINT IF EXISTS enrollments_status_check;
+ALTER TABLE enrollments ADD CONSTRAINT enrollments_status_check
+  CHECK (status IN ('active','cancelled','pending'));
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- refresh_tokens
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+  id         SERIAL      PRIMARY KEY,
+  user_id    INT         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash CHAR(64)    NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  revoked_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_rt_token   ON refresh_tokens(token_hash);
+CREATE INDEX IF NOT EXISTS idx_rt_user_id ON refresh_tokens(user_id);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- email_verification_tokens
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS email_verification_tokens (
+  id         SERIAL      PRIMARY KEY,
+  user_id    INT         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash CHAR(64)    NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at    TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_evt_token ON email_verification_tokens(token_hash);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- magic_link_tokens
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS magic_link_tokens (
+  id         SERIAL      PRIMARY KEY,
+  user_id    INT         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash CHAR(64)    NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at    TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_mlt_token ON magic_link_tokens(token_hash);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- two_factor_codes
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS two_factor_codes (
+  id         SERIAL      PRIMARY KEY,
+  user_id    INT         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  code       VARCHAR(10) NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at    TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_tfc_user ON two_factor_codes(user_id);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- payments
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS payments (
+  id            SERIAL        PRIMARY KEY,
+  user_id       INT           NOT NULL REFERENCES users(id)       ON DELETE CASCADE,
+  enrollment_id INT           REFERENCES enrollments(id)          ON DELETE SET NULL,
+  gateway       VARCHAR(20)   NOT NULL,
+  gateway_ref   VARCHAR(255),
+  amount        INT           NOT NULL DEFAULT 0,
+  currency      VARCHAR(10)   NOT NULL DEFAULT 'ars',
+  status        VARCHAR(20)   NOT NULL DEFAULT 'pending'
+                  CHECK (status IN ('pending','completed','failed','refunded')),
+  metadata      JSONB,
+  created_at    TIMESTAMPTZ   DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ   DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_payments_user       ON payments(user_id);
+CREATE INDEX IF NOT EXISTS idx_payments_enrollment ON payments(enrollment_id);
+CREATE INDEX IF NOT EXISTS idx_payments_status     ON payments(status);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- saved_payment_methods
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS saved_payment_methods (
+  id           SERIAL       PRIMARY KEY,
+  user_id      INT          NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  provider     VARCHAR(20)  NOT NULL,
+  brand        VARCHAR(30),
+  last4        CHAR(4),
+  expiry_month SMALLINT,
+  expiry_year  SMALLINT,
+  holder_name  VARCHAR(120),
+  is_default   BOOLEAN      NOT NULL DEFAULT FALSE,
+  gateway_ref  VARCHAR(255),
+  created_at   TIMESTAMPTZ  DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_spm_user_id ON saved_payment_methods(user_id);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- refund_requests
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS refund_requests (
+  id            SERIAL       PRIMARY KEY,
+  user_id       INT          NOT NULL REFERENCES users(id)       ON DELETE CASCADE,
+  enrollment_id INT          NOT NULL REFERENCES enrollments(id) ON DELETE CASCADE,
+  reason        VARCHAR(200) NOT NULL,
+  details       TEXT,
+  status        VARCHAR(20)  NOT NULL DEFAULT 'pending'
+                  CHECK (status IN ('pending','approved','rejected')),
+  amount        DECIMAL(10,2),
+  created_at    TIMESTAMPTZ  DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_refund_user ON refund_requests(user_id);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- coupons
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS coupons (
+  id               SERIAL       PRIMARY KEY,
+  code             VARCHAR(50)  NOT NULL UNIQUE,
+  discount_amount  DECIMAL(10,2),
+  discount_percent INT          CHECK (discount_percent BETWEEN 1 AND 100),
+  activity_id      INT          REFERENCES activities(id) ON DELETE CASCADE,
+  max_uses         INT          DEFAULT 1,
+  used_count       INT          NOT NULL DEFAULT 0,
+  valid_until      TIMESTAMPTZ,
+  created_at       TIMESTAMPTZ  DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_coupons_code ON coupons(code);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- in_app_messages
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS in_app_messages (
+  id         SERIAL       PRIMARY KEY,
+  user_id    INT          NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title      VARCHAR(200) NOT NULL,
+  body       TEXT         NOT NULL,
+  kind       VARCHAR(20)  NOT NULL DEFAULT 'system'
+               CHECK (kind IN ('enrollment','payment','promo','system')),
+  read       BOOLEAN      NOT NULL DEFAULT FALSE,
+  deep_link  VARCHAR(500),
+  created_at TIMESTAMPTZ  DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_iam_user_id ON in_app_messages(user_id);
+CREATE INDEX IF NOT EXISTS idx_iam_read    ON in_app_messages(user_id, read);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- push_tokens
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS push_tokens (
+  id         SERIAL       PRIMARY KEY,
+  user_id    INT          NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token      VARCHAR(500) NOT NULL,
+  platform   VARCHAR(10)  NOT NULL DEFAULT 'ios',
+  created_at TIMESTAMPTZ  DEFAULT NOW(),
+  UNIQUE (user_id, token)
+);
+CREATE INDEX IF NOT EXISTS idx_pt_user_id ON push_tokens(user_id);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- gym_sessions
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS gym_sessions (
+  id                 SERIAL        PRIMARY KEY,
+  user_id            INT           NOT NULL REFERENCES users(id)      ON DELETE CASCADE,
+  activity_id        INT           REFERENCES activities(id)          ON DELETE SET NULL,
+  started_at         TIMESTAMPTZ   DEFAULT NOW(),
+  finished_at        TIMESTAMPTZ,
+  status             VARCHAR(20)   NOT NULL DEFAULT 'active'
+                       CHECK (status IN ('active','completed','abandoned')),
+  goal               VARCHAR(200),
+  time_available_min INT,
+  equipment_available TEXT,
+  muscle_groups      TEXT[],
+  ai_plan            JSONB,
+  total_sets         INT,
+  total_reps         INT,
+  total_volume_kg    DECIMAL(10,2),
+  duration_s         INT,
+  xp_earned          INT           NOT NULL DEFAULT 0,
+  created_at         TIMESTAMPTZ   DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_gs_user_id ON gym_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_gs_status  ON gym_sessions(status);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- gym_sets
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS gym_sets (
+  id             SERIAL       PRIMARY KEY,
+  session_id     INT          NOT NULL REFERENCES gym_sessions(id) ON DELETE CASCADE,
+  exercise_name  VARCHAR(100) NOT NULL,
+  muscle_group   VARCHAR(50),
+  set_number     INT          NOT NULL DEFAULT 1,
+  planned_reps   INT,
+  planned_weight DECIMAL(6,2),
+  actual_reps    INT,
+  actual_weight  DECIMAL(6,2),
+  rpe            SMALLINT,
+  rest_s         INT,
+  completed      BOOLEAN      NOT NULL DEFAULT FALSE,
+  notes          TEXT,
+  created_at     TIMESTAMPTZ  DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_gym_sets_session ON gym_sets(session_id);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- training_plans
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS training_plans (
+  id             SERIAL       PRIMARY KEY,
+  user_id        INT          NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title          VARCHAR(200) NOT NULL,
+  goal           VARCHAR(200) NOT NULL,
+  duration_weeks INT          NOT NULL DEFAULT 4,
+  difficulty     VARCHAR(20),
+  status         VARCHAR(20)  NOT NULL DEFAULT 'active'
+                   CHECK (status IN ('active','cancelled','completed')),
+  started_at     TIMESTAMPTZ  DEFAULT NOW(),
+  plan_data      JSONB,
+  created_at     TIMESTAMPTZ  DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_tp_user_id ON training_plans(user_id);
+CREATE INDEX IF NOT EXISTS idx_tp_status  ON training_plans(status);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- xp_log
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS xp_log (
+  id         SERIAL      PRIMARY KEY,
+  user_id    INT         NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  xp         INT         NOT NULL,
+  source     VARCHAR(50) NOT NULL,
+  ref_type   VARCHAR(50),
+  ref_id     INT,
+  note       TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_xp_user_id ON xp_log(user_id);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- badges + user_badges
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS badges (
+  id          SERIAL       PRIMARY KEY,
+  code        VARCHAR(50)  NOT NULL UNIQUE,
+  name        VARCHAR(100) NOT NULL,
+  description TEXT,
+  icon        VARCHAR(100),
+  category    VARCHAR(50),
+  threshold   INT
+);
+
+CREATE TABLE IF NOT EXISTS user_badges (
+  id        SERIAL      PRIMARY KEY,
+  user_id   INT         NOT NULL REFERENCES users(id)  ON DELETE CASCADE,
+  badge_id  INT         NOT NULL REFERENCES badges(id) ON DELETE CASCADE,
+  earned_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (user_id, badge_id)
+);
+CREATE INDEX IF NOT EXISTS idx_ub_user_id ON user_badges(user_id);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- user_gamification
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS user_gamification (
+  user_id     INT         PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  total_xp    INT         NOT NULL DEFAULT 0,
+  level       INT         NOT NULL DEFAULT 1,
+  streak_days INT         NOT NULL DEFAULT 0,
+  last_active TIMESTAMPTZ,
+  updated_at  TIMESTAMPTZ DEFAULT NOW()
+);

@@ -140,3 +140,22 @@ SELECT p.id, s.id, 'club_sport', 'active',
 FROM providers p, sports s
 WHERE p.name = 'Club Atlético Palermo' AND s.name = 'Ciclismo'
   AND NOT EXISTS (SELECT 1 FROM activities WHERE title = 'Ciclismo Grupal — Ruta del Río');
+
+-- ─────────────────────────────────────────────
+-- Badges
+-- ─────────────────────────────────────────────
+INSERT INTO badges (code, name, description, icon, category, threshold) VALUES
+  ('first_run',        'Primer Kilómetro',     'Completaste tu primera sesión de running',     'figure.run',              'running',  1),
+  ('run_5k',           'Corredor 5K',           'Corriste 5 km en total',                       'figure.run.circle',       'running',  5000),
+  ('run_50k',          'Medio Centenar',        'Corriste 50 km en total',                      'medal',                   'running',  50000),
+  ('run_100k',         'Centenario de km',      'Corriste 100 km en total',                     'trophy',                  'running',  100000),
+  ('first_gym',        'Primera Sesión Gym',    'Completaste tu primera sesión de gimnasio',    'dumbbell',                'gym',      1),
+  ('gym_10',           'Habitué del Gym',       'Completaste 10 sesiones de gimnasio',          'figure.strengthtraining', 'gym',      10),
+  ('gym_50',           'Veterano del Gym',      'Completaste 50 sesiones de gimnasio',          'star.circle',             'gym',      50),
+  ('streak_7',         'Semana Perfecta',       'Mantuviste 7 días de racha activa',            'flame',                   'streak',   7),
+  ('streak_30',        'Mes Activo',            'Mantuviste 30 días de racha activa',           'flame.fill',              'streak',   30),
+  ('first_enrollment', 'Primera Inscripción',   'Te inscribiste en tu primera actividad',       'checkmark.seal',          'social',   1),
+  ('xp_500',           'En Forma',              'Acumulaste 500 XP',                            'bolt',                    'xp',       500),
+  ('xp_2000',          'Atleta',                'Acumulaste 2000 XP',                           'bolt.circle',             'xp',       2000),
+  ('xp_10000',         'Élite FitNow',          'Acumulaste 10.000 XP',                         'crown',                   'xp',       10000)
+ON CONFLICT (code) DO NOTHING;

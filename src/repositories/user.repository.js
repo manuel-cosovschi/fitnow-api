@@ -78,6 +78,18 @@ export async function findMany({ q, role, limit = 20, offset = 0 } = {}) {
   );
 }
 
+export async function findManyForAdmin({ q, role, limit = 20, offset = 0 } = {}) {
+  const where  = ['deleted_at IS NULL'];
+  const params = [];
+  if (q)    { where.push(`(name LIKE ? OR email LIKE ?)`); params.push(`%${q}%`, `%${q}%`); }
+  if (role) { where.push(`role = ?`); params.push(role); }
+  const whereClause = `WHERE ${where.join(' AND ')}`;
+  return query(
+    `SELECT id, name, email, role, is_banned, created_at FROM users ${whereClause} ORDER BY id DESC LIMIT ? OFFSET ?`,
+    [...params, limit, offset]
+  );
+}
+
 export async function countMany({ q, role } = {}) {
   const where  = ['deleted_at IS NULL'];
   const params = [];
@@ -86,4 +98,18 @@ export async function countMany({ q, role } = {}) {
   const whereClause = `WHERE ${where.join(' AND ')}`;
   const row = await queryOne(`SELECT COUNT(*) AS total FROM users ${whereClause}`, params);
   return row?.total ?? 0;
+}
+
+export async function updateRole(id, role) {
+  await query(
+    `UPDATE users SET role = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+    [role, id]
+  );
+}
+
+export async function setBanned(id, is_banned) {
+  await query(
+    `UPDATE users SET is_banned = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+    [is_banned, id]
+  );
 }
