@@ -159,3 +159,18 @@ INSERT INTO badges (code, name, description, icon, category, threshold) VALUES
   ('xp_2000',          'Atleta',                'Acumulaste 2000 XP',                           'bolt.circle',             'xp',       2000),
   ('xp_10000',         'Élite FitNow',          'Acumulaste 10.000 XP',                         'crown',                   'xp',       10000)
 ON CONFLICT (code) DO NOTHING;
+
+-- ─────────────────────────────────────────────
+-- Seed users: admin + provider_admin for testing
+-- Passwords: admin → AdminFitNow1!  |  provider_admin → ProvAdmin1!
+-- ─────────────────────────────────────────────
+INSERT INTO users (name, email, password_hash, role)
+SELECT 'Admin FitNow', 'admin@fitnow.com',
+  '$2a$10$X12qcAlakS/vAtNFIl63t.bBMHbEKFKJq2OIhYXNEGU683h20rziO', 'admin'
+WHERE NOT EXISTS (SELECT 1 FROM users WHERE email = 'admin@fitnow.com');
+
+INSERT INTO users (name, email, password_hash, role, provider_id)
+SELECT 'Provider Admin Test', 'provadmin@fitnow.com',
+  '$2a$10$D1rVOS/FJcROzwP5Q4AEVemUySGW0DVjzOkRXkrXsL3jdvidV8Nim', 'provider_admin',
+  (SELECT id FROM providers WHERE name = 'FitCenter Buenos Aires' LIMIT 1)
+WHERE NOT EXISTS (SELECT 1 FROM users WHERE email = 'provadmin@fitnow.com');
