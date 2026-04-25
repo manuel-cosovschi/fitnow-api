@@ -28,3 +28,9 @@ export async function cancel(req, res, next) {
     res.json(await enrollService.cancel(req.user.id, Number(req.params.id)));
   } catch (err) { next(err); }
 }
+
+export async function checkin(req, res, next) {
+  try {
+    res.json(await enrollService.checkin(req.user.provider_id, Number(req.params.enrollmentId)));
+  } catch (err) { next(err); }
+}

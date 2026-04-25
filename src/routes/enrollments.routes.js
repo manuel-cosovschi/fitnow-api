@@ -8,9 +8,10 @@ import * as ctrl from '../controllers/enrollments.controller.js';
 
 const router = Router();
 
-router.post  ('/',          requireAuth, validateBody(enrollSchema),            ctrl.enroll);
-router.get   ('/mine',      requireAuth,                                        ctrl.listMine);
-router.get   ('/provider',  requireAuth, requireRole('admin','provider_admin'), ctrl.listByProvider);
-router.delete('/:id',       requireAuth,                                        ctrl.cancel);
+router.post  ('/',                         requireAuth, validateBody(enrollSchema),            ctrl.enroll);
+router.get   ('/mine',                     requireAuth,                                        ctrl.listMine);
+router.get   ('/provider',                 requireAuth, requireRole('admin','provider_admin'), ctrl.listByProvider);
+router.delete('/:id',                      requireAuth,                                        ctrl.cancel);
+router.post  ('/:enrollmentId/checkin',    requireAuth, requireRole('admin','provider_admin'), ctrl.checkin);
 
 export default router;

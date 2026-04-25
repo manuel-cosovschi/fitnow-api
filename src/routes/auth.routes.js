@@ -26,4 +26,13 @@ router.post('/me/password', requireAuth, validateBody(changePasswordSchema), ctr
 router.post('/forgot-password',    validateBody(forgotPasswordSchema),  ctrl.forgotPassword);
 router.post('/reset-password',     validateBody(resetPasswordSchema),   ctrl.resetPassword);
 
+// Token refresh
+router.post('/refresh',            ctrl.refresh);
+
+// Email / magic-link / 2FA / Apple
+router.post('/verify-email',       ctrl.verifyEmail);
+router.post('/magic-link',         ctrl.magicLink);
+router.post('/2fa/verify',         ctrl.verify2fa);
+router.post('/apple',              ctrl.appleSignIn);
+
 export default router;
