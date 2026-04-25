@@ -75,14 +75,15 @@ export async function listBadges(req, res, next) {
     const all  = await query(`SELECT * FROM badges ORDER BY id ASC`);
     const mine = await query(`SELECT badge_id FROM user_badges WHERE user_id = ?`, [uid]);
     const earnedSet = new Set(mine.map((r) => r.badge_id));
-    res.json(all.map((b) => ({ ...b, earned: earnedSet.has(b.id) })));
+    res.json({ items: all.map((b) => ({ ...b, earned: earnedSet.has(b.id) })) });
   } catch (err) { next(err); }
 }
 
 export async function getRanking(req, res, next) {
   try {
     const { page, perPage, offset } = parsePagination(req.query);
-    const type = req.query.type === 'weekly' ? 'weekly' : 'global';
+    const scope = req.query.scope ?? req.query.type;
+    const type = scope === 'weekly' ? 'weekly' : 'global';
     let items, total;
 
     if (type === 'weekly') {
