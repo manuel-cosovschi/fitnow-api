@@ -1,10 +1,7 @@
 // src/controllers/gamification.controller.js
 import { queryOne, query } from '../db.js';
 import { parsePagination, paginatedResponse } from '../utils/paginate.js';
-
-function calcLevel(xp) {
-  return Math.floor(Math.sqrt(xp / 100)) + 1;
-}
+import { calcLevel } from '../utils/xp.js';
 
 export async function getMe(req, res, next) {
   try {

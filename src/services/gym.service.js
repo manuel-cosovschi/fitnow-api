@@ -3,6 +3,7 @@ import { query, queryOne } from '../db.js';
 import { Errors } from '../utils/errors.js';
 import { paginatedResponse } from '../utils/paginate.js';
 import logger from '../utils/logger.js';
+import { awardXp } from '../utils/xp.js';
 
 async function callOpenAI(messages) {
   const key   = process.env.OPENAI_API_KEY;
@@ -96,12 +97,7 @@ export async function finish(userId, sessionId, { total_sets, total_reps, total_
     `UPDATE gym_sessions SET status='completed', finished_at=NOW(), total_sets=?, total_reps=?, total_volume_kg=?, duration_s=?, xp_earned=? WHERE id=?`,
     [total_sets ?? null, total_reps ?? null, total_volume_kg ?? null, duration_s ?? null, xp, sessionId]
   );
-  await query(`INSERT INTO xp_log (user_id, xp, source, ref_type, ref_id) VALUES (?,?,'gym_session','gym_session',?)`, [userId, xp, sessionId]);
-  await query(
-    `INSERT INTO user_gamification (user_id, total_xp) VALUES (?,?)
-     ON CONFLICT (user_id) DO UPDATE SET total_xp = user_gamification.total_xp + ?, updated_at = NOW()`,
-    [userId, xp, xp]
-  );
+  await awardXp(userId, xp, 'gym_session', { ref_type: 'gym_session', ref_id: sessionId });
   return getById(userId, sessionId);
 }
 

@@ -2,6 +2,7 @@
 import { query, queryOne } from '../db.js';
 import { Errors } from '../utils/errors.js';
 import logger from '../utils/logger.js';
+import { awardXp } from '../utils/xp.js';
 
 const BASE_URL = () => process.env.APP_BASE_URL || 'https://api.fitnow.com';
 const DEEP_LINK = () => process.env.IOS_DEEP_LINK_SCHEME || 'fitnow';
@@ -162,20 +163,12 @@ async function activateEnrollment(enrollmentId, gateway, gatewayRef) {
     [enrollmentId]
   );
   if (enrollment) {
-    await query(
-      `INSERT INTO xp_log (user_id, xp, source, ref_type, ref_id) VALUES (?,50,'enrollment','enrollment',?)`,
-      [enrollment.user_id, enrollmentId]
-    );
+    await awardXp(enrollment.user_id, 50, 'enrollment', { ref_type: 'enrollment', ref_id: enrollmentId });
     await query(
       `INSERT INTO in_app_messages (user_id, title, body, kind, deep_link)
        VALUES (?,?,?,'payment',?)`,
       [enrollment.user_id, 'Pago confirmado', 'Tu inscripción fue procesada exitosamente.',
        `${DEEP_LINK()}://enrollment/${enrollmentId}`]
-    );
-    await query(
-      `INSERT INTO user_gamification (user_id, total_xp) VALUES (?,50)
-       ON CONFLICT (user_id) DO UPDATE SET total_xp = user_gamification.total_xp + 50, updated_at = NOW()`,
-      [enrollment.user_id]
     );
   }
 }

@@ -20,6 +20,7 @@ import filesRoutes          from './routes/files.routes.js';
 import sessionsRoutes       from './routes/sessions.routes.js';
 import offersRoutes         from './routes/offers.routes.js';
 import paymentsRoutes       from './routes/payments.routes.js';
+import { stripeWebhook }    from './controllers/payments.controller.js';
 import messagesRoutes       from './routes/messages.routes.js';
 import gymRoutes            from './routes/gym.routes.js';
 import trainingPlansRoutes  from './routes/training-plans.routes.js';
@@ -80,6 +81,12 @@ const apiLimiter = rateLimit({
 
 app.use('/api/', apiLimiter);
 app.use('/api/auth', authLimiter);
+
+// ── Stripe webhook — must receive raw body BEFORE express.json() parses it ────
+app.post('/api/payments/stripe/webhook',
+  express.raw({ type: 'application/json' }),
+  stripeWebhook
+);
 
 // ── Body parsing ───────────────────────────────────────────────────────────────
 app.use(express.json({ limit: '2mb' }));

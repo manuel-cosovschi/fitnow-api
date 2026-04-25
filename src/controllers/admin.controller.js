@@ -73,7 +73,7 @@ export async function patchUser(req, res, next) {
     if (role !== undefined) {
       const VALID_ROLES = ['user', 'provider_admin', 'admin'];
       if (!VALID_ROLES.includes(role)) throw Errors.badRequest(`Rol inválido.`);
-      await userRepo.setRoleAndProvider(userId, role, undefined);
+      await userRepo.updateRole(userId, role);
     }
     if (is_banned !== undefined) {
       await userRepo.setBanned(userId, Boolean(is_banned));
