@@ -15,6 +15,24 @@ export async function findMany({ status, kind, city, q, limit = 20, offset = 0 }
   );
 }
 
+export async function findManyForAdmin({ kind, q, limit = 20, offset = 0 } = {}) {
+  const where  = [];
+  const params = [];
+  if (kind) { where.push(`p.kind = ?`);    params.push(kind); }
+  if (q)    { where.push(`p.name LIKE ?`); params.push(`%${q}%`); }
+  const whereClause = where.length ? `WHERE ${where.join(' AND ')}` : '';
+  return query(
+    `SELECT p.id, p.name, p.kind, p.status, p.created_at,
+            u.email,
+            (SELECT COUNT(*) FROM activities a WHERE a.provider_id = p.id) AS activity_count
+     FROM providers p
+     LEFT JOIN users u ON u.provider_id = p.id AND u.role = 'provider_admin'
+     ${whereClause}
+     ORDER BY p.name ASC LIMIT ? OFFSET ?`,
+    [...params, limit, offset]
+  );
+}
+
 export async function countMany({ status, kind, city, q } = {}) {
   const where  = [];
   const params = [];

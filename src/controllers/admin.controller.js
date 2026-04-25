@@ -38,7 +38,7 @@ export async function listUsers(req, res, next) {
     const { page, perPage, offset } = parsePagination(req.query);
     const filters = { q: req.query.q?.trim() || null, role: req.query.role || null };
     const [items, total] = await Promise.all([
-      userRepo.findMany({ ...filters, limit: perPage, offset }),
+      userRepo.findManyForAdmin({ ...filters, limit: perPage, offset }),
       userRepo.countMany(filters),
     ]);
     res.json(paginatedResponse(items, { page, perPage, total }));
@@ -65,25 +65,59 @@ export async function assignProviderRole(req, res, next) {
   } catch (err) { next(err); }
 }
 
+export async function patchUser(req, res, next) {
+  try {
+    const userId = Number(req.params.id);
+    const { role, is_banned } = req.body;
+
+    if (role !== undefined) {
+      const VALID_ROLES = ['user', 'provider_admin', 'admin'];
+      if (!VALID_ROLES.includes(role)) throw Errors.badRequest(`Rol inválido.`);
+      await userRepo.setRoleAndProvider(userId, role, undefined);
+    }
+    if (is_banned !== undefined) {
+      await userRepo.setBanned(userId, Boolean(is_banned));
+    }
+
+    const user = await userRepo.findById(userId);
+    if (!user) throw Errors.notFound('Usuario no encontrado.');
+    res.json(user);
+  } catch (err) { next(err); }
+}
+
+export async function patchProvider(req, res, next) {
+  try {
+    const id = Number(req.params.id);
+    const VALID_STATUS = ['active', 'suspended', 'pending'];
+    if (req.body.status && !VALID_STATUS.includes(req.body.status)) {
+      throw Errors.badRequest(`Estado inválido. Valores válidos: ${VALID_STATUS.join(', ')}`);
+    }
+    const provider = await provRepo.update(id, req.body);
+    if (!provider) throw Errors.notFound('Proveedor no encontrado.');
+    const actCount = await queryOne(`SELECT COUNT(*) AS total FROM activities WHERE provider_id = ?`, [id]);
+    res.json({ ...provider, activity_count: actCount?.total ?? 0 });
+  } catch (err) { next(err); }
+}
+
 // ─── Stats ────────────────────────────────────────────────────────────────────
 
 export async function getStats(req, res, next) {
   try {
-    const [users, providers, activities, totalEnrollments, activeEnrollments, pendingOffers] = await Promise.all([
+    const [users, providers, activities, totalEnrollments, pendingOffers, revenue] = await Promise.all([
       queryOne(`SELECT COUNT(*) AS total FROM users WHERE deleted_at IS NULL`),
       queryOne(`SELECT COUNT(*) AS total FROM providers`),
       queryOne(`SELECT COUNT(*) AS total FROM activities`),
       queryOne(`SELECT COUNT(*) AS total FROM enrollments`),
-      queryOne(`SELECT COUNT(*) AS total FROM enrollments WHERE status = 'active'`),
       queryOne(`SELECT COUNT(*) AS total FROM offers WHERE status = 'pending'`),
+      queryOne(`SELECT COALESCE(SUM(amount),0) AS total FROM payments WHERE status = 'completed'`),
     ]);
     res.json({
-      total_users:        users?.total             ?? 0,
-      total_providers:    providers?.total         ?? 0,
-      total_activities:   activities?.total        ?? 0,
-      total_enrollments:  totalEnrollments?.total  ?? 0,
-      active_enrollments: activeEnrollments?.total ?? 0,
-      pending_offers:     pendingOffers?.total     ?? 0,
+      total_users:       users?.total            ?? 0,
+      total_providers:   providers?.total        ?? 0,
+      total_activities:  activities?.total       ?? 0,
+      total_enrollments: totalEnrollments?.total ?? 0,
+      pending_offers:    pendingOffers?.total    ?? 0,
+      total_revenue:     Number(revenue?.total   ?? 0) / 100,
     });
   } catch (err) { next(err); }
 }
@@ -95,7 +129,7 @@ export async function listProviders(req, res, next) {
     const { page, perPage, offset } = parsePagination(req.query);
     const filters = { q: req.query.q?.trim() || null, kind: req.query.kind || null };
     const [items, total] = await Promise.all([
-      provRepo.findMany({ ...filters, limit: perPage, offset }),
+      provRepo.findManyForAdmin({ ...filters, limit: perPage, offset }),
       provRepo.countMany(filters),
     ]);
     res.json(paginatedResponse(items, { page, perPage, total }));

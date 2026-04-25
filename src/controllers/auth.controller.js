@@ -57,3 +57,34 @@ export async function registerProvider(req, res, next) {
     res.status(201).json(result);
   } catch (err) { next(err); }
 }
+
+export async function refresh(req, res, next) {
+  try {
+    const result = await authService.refreshToken(req.body?.refresh_token);
+    res.json(result);
+  } catch (err) { next(err); }
+}
+
+export async function verifyEmail(req, res, next) {
+  try {
+    res.json(await authService.verifyEmail(req.body));
+  } catch (err) { next(err); }
+}
+
+export async function magicLink(req, res, next) {
+  try {
+    res.json(await authService.magicLink(req.body));
+  } catch (err) { next(err); }
+}
+
+export async function verify2fa(req, res, next) {
+  try {
+    res.json(await authService.verify2fa(req.body));
+  } catch (err) { next(err); }
+}
+
+export async function appleSignIn(req, res, next) {
+  try {
+    res.json(await authService.appleSignIn(req.body));
+  } catch (err) { next(err); }
+}

@@ -16,6 +16,9 @@ router.patch ('/:id/settings', requireAuth, requireRole('admin','provider_admin'
 router.post  ('/:id/activate', requireAuth, requireRole('admin'),                                           ctrl.activate);
 router.post  ('/:id/sessions', requireAuth, requireRole('admin','provider_admin'), validateBody(addSessionSchema), ctrl.addSession);
 
+// Reviews
+router.get   ('/:id/reviews',                                                                                 ctrl.listReviews);
+
 // Activity Hub posts
 router.get   ('/:id/posts',           optionalAuth,                                                          ctrl.listPosts);
 router.post  ('/:id/posts',           requireAuth, requireRole('admin','provider_admin'), validateBody(createPostSchema), ctrl.createPost);
