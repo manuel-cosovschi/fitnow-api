@@ -20,9 +20,10 @@ export async function mpPreference(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// B-1: pass req.headers so the service can verify the MP signature
 export async function mpWebhook(req, res, next) {
   try {
-    await svc.handleMpWebhook(req.body, req.query);
+    await svc.handleMpWebhook(req.body, req.query, req.headers);
     res.json({ received: true });
   } catch (err) { next(err); }
 }
