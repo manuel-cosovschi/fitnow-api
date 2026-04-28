@@ -1,8 +1,31 @@
 // src/services/routeGenerator.service.js
 // Generates dynamic running route options from an origin point + desired distance.
 // Tries OSRM (public routing engine) first; falls back to geometric circles.
+//
+// Env (all optional):
+//   OSRM_BASE              default 'https://router.project-osrm.org'
+//   OSRM_TIMEOUT_MS        default 6000
+//   OSRM_CACHE_TTL_MS      default 300000 (5 min)
+//   OSRM_CACHE_MAX_ENTRIES default 500
 
-const OSRM_BASE = 'https://router.project-osrm.org';
+import { LRUCache } from '../utils/lruCache.js';
+
+const OSRM_BASE       = () => process.env.OSRM_BASE || 'https://router.project-osrm.org';
+const OSRM_TIMEOUT_MS = () => parseInt(process.env.OSRM_TIMEOUT_MS, 10) || 6000;
+
+const tripCache = new LRUCache({
+  ttlMs:      parseInt(process.env.OSRM_CACHE_TTL_MS, 10)      || 5 * 60 * 1000,
+  maxEntries: parseInt(process.env.OSRM_CACHE_MAX_ENTRIES, 10) || 500,
+});
+
+/**
+ * Build a stable cache key from the request shape. We round lat/lng to ~110m
+ * buckets so nearby starts share cache entries.
+ */
+function cacheKey(lat, lng, distance_m, primaryBearing) {
+  const round = (n) => Math.round(n * 1000) / 1000; // ~110m precision
+  return `${round(lat)}|${round(lng)}|${distance_m}|${primaryBearing}`;
+}
 
 /**
  * Offset a coordinate by a bearing (degrees) and distance (meters).
@@ -34,10 +57,10 @@ function offsetCoord(lat, lng, bearing, distance) {
 async function fetchOsrmTrip(waypoints) {
   const coords = waypoints.map(p => `${p.lng},${p.lat}`).join(';');
   const url =
-    `${OSRM_BASE}/trip/v1/foot/${coords}` +
+    `${OSRM_BASE()}/trip/v1/foot/${coords}` +
     `?roundtrip=true&source=first&destination=last&geometries=geojson&overview=full`;
 
-  const resp = await fetch(url, { signal: AbortSignal.timeout(6000) });
+  const resp = await fetch(url, { signal: AbortSignal.timeout(OSRM_TIMEOUT_MS()) });
   if (!resp.ok) throw new Error(`OSRM ${resp.status}`);
   const data = await resp.json();
   if (data.code !== 'Ok' || !data.trips?.length) throw new Error('OSRM: no trips returned');
@@ -94,15 +117,27 @@ const TEMPLATES = [
 
 /**
  * Generate 3 route options for the given origin and distance.
- * @param {{ origin_lat: number, origin_lng: number, distance_m: number }} params
- * @returns {{ items: RunRouteOption[] }}
+ * Cached per (lat-bucket, lng-bucket, distance, bearing) — see tripCache above.
  */
 export async function generateRoutes({ origin_lat, origin_lng, distance_m }) {
   const items = await Promise.all(
     TEMPLATES.map(async (tmpl, idx) => {
       const legDist = distance_m * tmpl.legFraction;
-      const waypoints = [{ lat: origin_lat, lng: origin_lng }];
+      const primaryBearing = tmpl.bearings[0];
+      const key = cacheKey(origin_lat, origin_lng, distance_m, primaryBearing);
 
+      const cached = tripCache.get(key);
+      if (cached) {
+        return {
+          id: idx + 1,
+          preference: tmpl.preference,
+          label:      tmpl.label,
+          rationale:  tmpl.rationale,
+          ...cached,
+        };
+      }
+
+      const waypoints = [{ lat: origin_lat, lng: origin_lng }];
       for (const bearing of tmpl.bearings) {
         waypoints.push(offsetCoord(origin_lat, origin_lng, bearing, legDist));
       }
@@ -115,16 +150,18 @@ export async function generateRoutes({ origin_lat, origin_lng, distance_m }) {
         geojson = trip.geometry;
         actual_distance_m = Math.round(trip.distance);
       } catch {
-        geojson = circularFallback(origin_lat, origin_lng, distance_m, tmpl.bearings[0]);
+        geojson = circularFallback(origin_lat, origin_lng, distance_m, primaryBearing);
       }
+
+      const payload = { distance_m: actual_distance_m, geojson };
+      tripCache.set(key, payload);
 
       return {
         id: idx + 1,
         preference: tmpl.preference,
-        label: tmpl.label,
-        rationale: tmpl.rationale,
-        distance_m: actual_distance_m,
-        geojson,
+        label:      tmpl.label,
+        rationale:  tmpl.rationale,
+        ...payload,
       };
     }),
   );
