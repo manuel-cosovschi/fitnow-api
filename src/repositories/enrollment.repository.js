@@ -28,17 +28,24 @@ export async function cancel(conn, id) {
   await conn.query(`UPDATE enrollments SET status = 'cancelled' WHERE id = ?`, [id]);
 }
 
-export async function findManyByUser(userId, { when = 'all', limit = 20, offset = 0 } = {}) {
+// W-5: activityId filter allows fetching only the enrollment for a specific activity
+export async function findManyByUser(userId, { when = 'all', limit = 20, offset = 0, activityId = null } = {}) {
   const effStart = 'COALESCE(e.start_at, a.date_start)';
-  let extra = '';
+  const wheres = ['e.user_id = ?'];
+  const params = [userId];
   let order = `${effStart} DESC`;
 
   if (when === 'upcoming') {
-    extra = `AND e.status != 'cancelled' AND (${effStart} IS NULL OR ${effStart} >= NOW())`;
+    wheres.push(`e.status != 'cancelled'`);
+    wheres.push(`(${effStart} IS NULL OR ${effStart} >= NOW())`);
     order = `${effStart} ASC`;
   } else if (when === 'past') {
-    extra = `AND ${effStart} < NOW()`;
-    order = `${effStart} DESC`;
+    wheres.push(`${effStart} < NOW()`);
+  }
+
+  if (activityId) {
+    wheres.push('e.activity_id = ?');
+    params.push(activityId);
   }
 
   return query(
@@ -55,29 +62,36 @@ export async function findManyByUser(userId, { when = 'all', limit = 20, offset 
      JOIN activities a ON a.id = e.activity_id
      LEFT JOIN providers p ON p.id = a.provider_id
      LEFT JOIN sports    s ON s.id = a.sport_id
-     WHERE e.user_id = ? ${extra}
+     WHERE ${wheres.join(' AND ')}
      ORDER BY ${order}
      LIMIT ? OFFSET ?`,
-    [userId, limit, offset]
+    [...params, limit, offset]
   );
 }
 
-export async function countManyByUser(userId, { when = 'all' } = {}) {
+export async function countManyByUser(userId, { when = 'all', activityId = null } = {}) {
   const effStart = 'COALESCE(e.start_at, a.date_start)';
-  let extra = '';
+  const wheres = ['e.user_id = ?'];
+  const params = [userId];
 
   if (when === 'upcoming') {
-    extra = `AND e.status != 'cancelled' AND (${effStart} IS NULL OR ${effStart} >= NOW())`;
+    wheres.push(`e.status != 'cancelled'`);
+    wheres.push(`(${effStart} IS NULL OR ${effStart} >= NOW())`);
   } else if (when === 'past') {
-    extra = `AND ${effStart} < NOW()`;
+    wheres.push(`${effStart} < NOW()`);
+  }
+
+  if (activityId) {
+    wheres.push('e.activity_id = ?');
+    params.push(activityId);
   }
 
   const row = await queryOne(
     `SELECT COUNT(*) AS total
      FROM enrollments e
      JOIN activities a ON a.id = e.activity_id
-     WHERE e.user_id = ? ${extra}`,
-    [userId]
+     WHERE ${wheres.join(' AND ')}`,
+    params
   );
   return row?.total ?? 0;
 }

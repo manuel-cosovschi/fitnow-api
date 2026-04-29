@@ -11,8 +11,11 @@ import { assertDbHostReachable } from './utils/dbConnection.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SQL_DIR   = path.join(__dirname, '..', 'sql');
 
-// schema.sql = esquema completo, seed.sql = datos iniciales
-const FILES = ['schema.sql', 'seed.sql'];
+// Order matters:
+//   schema.sql      → base tables + alters
+//   ai-extras.sql   → AI persistence tables (must run after schema; references users)
+//   seed.sql        → initial data (must run last)
+const FILES = ['schema.sql', 'ai-extras.sql', 'seed.sql'];
 
 // Códigos de error PostgreSQL ignorables (idempotencia):
 //   42P07 = duplicate_table, 42701 = duplicate_column,

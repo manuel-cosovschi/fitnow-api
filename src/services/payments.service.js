@@ -1,5 +1,6 @@
 // src/services/payments.service.js
-import { query, queryOne } from '../db.js';
+import crypto from 'crypto';
+import { query, queryOne, transaction } from '../db.js';
 import { Errors } from '../utils/errors.js';
 import logger from '../utils/logger.js';
 import { awardXp } from '../utils/xp.js';
@@ -127,12 +128,49 @@ export async function createMpPreference(userId, { activity_id, plan_name, coupo
   return { preference_id: pref.id, init_point: pref.init_point, enrollment_id: enrollmentId };
 }
 
-export async function handleMpWebhook(body, query_params) {
+// B-1: verify MercadoPago webhook signature using HMAC-SHA256
+function verifyMpSignature(headers, dataId) {
+  const secret = process.env.MERCADOPAGO_WEBHOOK_SECRET;
+  if (!secret) return; // skip in dev when secret is not configured
+
+  const xSignature = headers['x-signature'];
+  const xRequestId = headers['x-request-id'];
+
+  if (!xSignature || !xRequestId || !dataId) {
+    throw Errors.badRequest('Webhook inválido: headers de verificación faltantes.');
+  }
+
+  const parts = Object.fromEntries(
+    xSignature.split(',').flatMap(p => {
+      const idx = p.indexOf('=');
+      if (idx === -1) return [];
+      return [[p.slice(0, idx).trim(), p.slice(idx + 1).trim()]];
+    })
+  );
+
+  const ts = parts['ts'];
+  const v1 = parts['v1'];
+  if (!ts || !v1) throw Errors.badRequest('Webhook inválido: formato de firma incorrecto.');
+
+  const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`;
+  const computed  = crypto.createHmac('sha256', secret).update(manifest).digest('hex');
+
+  if (computed !== v1) {
+    logger.warn('MP webhook: firma inválida — posible request no autorizado');
+    throw Errors.badRequest('Webhook inválido: firma incorrecta.');
+  }
+}
+
+export async function handleMpWebhook(body, query_params, headers = {}) {
   const TOKEN = process.env.MERCADOPAGO_ACCESS_TOKEN;
   if (!TOKEN) return;
 
-  const topic   = body?.type || query_params?.type;
-  const id      = body?.data?.id || query_params?.id;
+  const topic = body?.type || query_params?.type;
+  const id    = body?.data?.id || query_params?.id;
+
+  // B-1: validate signature before any DB access
+  verifyMpSignature(headers, id);
+
   if (topic !== 'payment' || !id) return;
 
   try {
@@ -147,30 +185,64 @@ export async function handleMpWebhook(body, query_params) {
     }
   } catch (err) {
     logger.error('MP webhook error:', err.message);
+    throw err;
   }
 }
 
-// ─── Shared activation ────────────────────────────────────────────────────────
+// ─── Shared activation (B-2 idempotent + W-7 transactional) ──────────────────
 
 async function activateEnrollment(enrollmentId, gateway, gatewayRef) {
-  await query(`UPDATE enrollments SET status = 'active' WHERE id = ? AND status = 'pending'`, [enrollmentId]);
-  await query(
-    `UPDATE payments SET status = 'completed', updated_at = NOW() WHERE enrollment_id = ? AND gateway = ?`,
-    [enrollmentId, gateway]
-  );
-  const enrollment = await queryOne(
-    `SELECT e.*, u.id AS uid FROM enrollments e JOIN users u ON u.id = e.user_id WHERE e.id = ?`,
-    [enrollmentId]
-  );
-  if (enrollment) {
-    await awardXp(enrollment.user_id, 50, 'enrollment', { ref_type: 'enrollment', ref_id: enrollmentId });
-    await query(
-      `INSERT INTO in_app_messages (user_id, title, body, kind, deep_link)
-       VALUES (?,?,?,'payment',?)`,
-      [enrollment.user_id, 'Pago confirmado', 'Tu inscripción fue procesada exitosamente.',
-       `${DEEP_LINK()}://enrollment/${enrollmentId}`]
+  // All DB mutations run in a single transaction for consistency (W-7).
+  // Returns enrollment row for post-commit side-effects, or null on duplicate.
+  const enrollment = await transaction(async (conn) => {
+    // B-2: idempotency guard — bail if this gateway+enrollment already completed
+    const [existingRows] = await conn.query(
+      `SELECT id FROM payments
+       WHERE enrollment_id = ? AND gateway = ? AND status = 'completed'
+       LIMIT 1`,
+      [enrollmentId, gateway]
     );
-  }
+    if (existingRows.length > 0) {
+      logger.info(`activateEnrollment: duplicate webhook ignored (enrollment=${enrollmentId} gateway=${gateway})`);
+      return null;
+    }
+
+    await conn.query(
+      `UPDATE enrollments SET status = 'active' WHERE id = ? AND status = 'pending'`,
+      [enrollmentId]
+    );
+    await conn.query(
+      `UPDATE payments SET status = 'completed', updated_at = NOW()
+       WHERE enrollment_id = ? AND gateway = ? AND status != 'completed'`,
+      [enrollmentId, gateway]
+    );
+
+    const [rows] = await conn.query(
+      `SELECT e.*, u.id AS uid
+       FROM enrollments e JOIN users u ON u.id = e.user_id
+       WHERE e.id = ? LIMIT 1`,
+      [enrollmentId]
+    );
+    return rows[0] ?? null;
+  });
+
+  // Duplicate webhook — skip side-effects entirely
+  if (!enrollment) return;
+
+  // Post-commit side-effects: XP award and in-app notification.
+  // Running outside the transaction shortens the lock window; these operations
+  // are safe to re-attempt if the process crashes here (they are append-only).
+  await awardXp(enrollment.user_id, 50, 'enrollment', { ref_type: 'enrollment', ref_id: enrollmentId });
+  await query(
+    `INSERT INTO in_app_messages (user_id, title, body, kind, deep_link)
+     VALUES (?,?,?,'payment',?)`,
+    [
+      enrollment.user_id,
+      'Pago confirmado',
+      'Tu inscripción fue procesada exitosamente.',
+      `${DEEP_LINK()}://enrollment/${enrollmentId}`,
+    ]
+  );
 }
 
 // ─── Coupons ──────────────────────────────────────────────────────────────────
