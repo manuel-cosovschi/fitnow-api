@@ -1,6 +1,8 @@
 // src/repositories/ai.repository.js
 import { query, queryOne } from '../db.js';
 
+// ── Weights (existing) ────────────────────────────────────────────────────────
+
 export async function getActiveWeights() {
   return queryOne(`SELECT * FROM ai_weights WHERE is_active = TRUE LIMIT 1`);
 }
@@ -28,5 +30,99 @@ export async function findNewsActive() {
      WHERE starts_at <= NOW()
        AND (ends_at IS NULL OR ends_at >= NOW())
      ORDER BY created_at DESC`
+  );
+}
+
+// ── Usage log ──────────────────────────────────────────────────────────────────
+
+export async function logUsage({ userId, endpoint, model, usage, status }) {
+  return query(
+    `INSERT INTO ai_usage_log
+       (user_id, endpoint, model, prompt_tokens, completion_tokens, total_tokens, status)
+     VALUES (?,?,?,?,?,?,?)`,
+    [
+      userId ?? null,
+      endpoint,
+      model,
+      usage?.prompt_tokens     ?? 0,
+      usage?.completion_tokens ?? 0,
+      usage?.total_tokens      ?? 0,
+      status ?? 'ok',
+    ]
+  );
+}
+
+export async function countUsageByUser(userId, sinceIso) {
+  const row = await queryOne(
+    `SELECT COUNT(*)::int AS calls, COALESCE(SUM(total_tokens),0)::int AS tokens
+       FROM ai_usage_log
+      WHERE user_id = ?
+        AND created_at >= ?`,
+    [userId, sinceIso]
+  );
+  return row ?? { calls: 0, tokens: 0 };
+}
+
+// ── Coach conversation history ────────────────────────────────────────────────
+
+export async function saveCoachTurn({ userId, role, content, tokens, aiMode }) {
+  const result = await query(
+    `INSERT INTO coach_conversations (user_id, role, content, tokens, ai_mode)
+     VALUES (?,?,?,?,?)`,
+    [userId, role, content, tokens ?? null, aiMode ?? 'real']
+  );
+  return queryOne(`SELECT * FROM coach_conversations WHERE id = ?`, [result.insertId]);
+}
+
+export async function listCoachTurns({ userId, limit = 50, before = null }) {
+  if (before) {
+    return query(
+      `SELECT id, role, content, tokens, ai_mode, created_at
+         FROM coach_conversations
+        WHERE user_id = ? AND id < ?
+        ORDER BY id DESC
+        LIMIT ?`,
+      [userId, before, limit]
+    );
+  }
+  return query(
+    `SELECT id, role, content, tokens, ai_mode, created_at
+       FROM coach_conversations
+      WHERE user_id = ?
+      ORDER BY id DESC
+      LIMIT ?`,
+    [userId, limit]
+  );
+}
+
+// ── Form check sessions ───────────────────────────────────────────────────────
+
+export async function saveFormCheck({ userId, exercise, score, feedback, joints }) {
+  const result = await query(
+    `INSERT INTO form_check_sessions (user_id, exercise, score, feedback, joints_json)
+     VALUES (?,?,?,?,?)`,
+    [userId, exercise, score, feedback, joints ? JSON.stringify(joints) : null]
+  );
+  return queryOne(`SELECT * FROM form_check_sessions WHERE id = ?`, [result.insertId]);
+}
+
+export async function listFormChecks({ userId, exercise = null, limit = 20 }) {
+  if (exercise) {
+    return query(
+      `SELECT id, exercise, score, feedback, created_at
+         FROM form_check_sessions
+        WHERE user_id = ? AND exercise = ?
+        ORDER BY created_at DESC
+        LIMIT ?`,
+      [userId, exercise, limit]
+    );
+  }
+  return query(
+    `SELECT id, exercise, score, feedback, created_at
+       FROM form_check_sessions
+      WHERE user_id = ?
+      ORDER BY created_at DESC
+      LIMIT ?`,
+    [userId, limit]
   );
 }

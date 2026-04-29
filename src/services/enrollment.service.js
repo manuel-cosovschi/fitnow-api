@@ -12,10 +12,23 @@ export async function enroll(userId, { activity_id, session_id, plan_name, plan_
   if (!activity) throw Errors.notFound('Actividad no encontrada.');
   if (activity.status !== 'active') throw Errors.badRequest('La actividad no está activa.');
 
+  // Fast-path duplicate check (outside transaction — catches the common case cheaply)
   const dup = await enrollRepo.findDuplicate(userId, activity_id);
   if (dup) throw Errors.conflict('ALREADY_ENROLLED', 'Ya estás inscripto en esta actividad.');
 
   return transaction(async (conn) => {
+    // B-4: re-check inside the transaction to close the TOCTOU race window.
+    // Two concurrent requests can both pass the fast-path check above; this
+    // inner check runs under a DB connection lock and prevents both from
+    // creating a duplicate enrollment row.
+    const [dupRows] = await conn.query(
+      `SELECT id FROM enrollments
+       WHERE user_id = ? AND activity_id = ? AND status != 'cancelled'
+       LIMIT 1`,
+      [userId, activity_id]
+    );
+    if (dupRows.length > 0) throw Errors.conflict('ALREADY_ENROLLED', 'Ya estás inscripto en esta actividad.');
+
     if (session_id) {
       const session = await actRepo.findSessionByIdForUpdate(conn, session_id);
       if (!session || session.activity_id !== Number(activity_id))
@@ -45,13 +58,15 @@ export async function enroll(userId, { activity_id, session_id, plan_name, plan_
   });
 }
 
+// W-5: supports ?activity_id=N for efficient single-activity enrollment lookup
 export async function listMine(userId, queryParams) {
   const { page, perPage, offset } = parsePagination(queryParams);
-  const when = queryParams.when ?? 'all';
+  const when       = queryParams.when ?? 'all';
+  const activityId = queryParams.activity_id ? Number(queryParams.activity_id) : null;
 
   const [items, total] = await Promise.all([
-    enrollRepo.findManyByUser(userId, { when, limit: perPage, offset }),
-    enrollRepo.countManyByUser(userId, { when }),
+    enrollRepo.findManyByUser(userId, { when, limit: perPage, offset, activityId }),
+    enrollRepo.countManyByUser(userId, { when, activityId }),
   ]);
 
   return paginatedResponse(items, { page, perPage, total });

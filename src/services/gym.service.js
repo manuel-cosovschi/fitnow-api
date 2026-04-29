@@ -2,37 +2,33 @@
 import { query, queryOne } from '../db.js';
 import { Errors } from '../utils/errors.js';
 import { paginatedResponse } from '../utils/paginate.js';
-import logger from '../utils/logger.js';
 import { awardXp } from '../utils/xp.js';
+import { chatJSON, getModel } from '../utils/openai.js';
+import * as aiRepo from '../repositories/ai.repository.js';
 
-async function callOpenAI(messages) {
-  const key   = process.env.OPENAI_API_KEY;
-  const model = process.env.OPENAI_MODEL || 'gpt-4o';
-  if (!key) return null;
-  const resp = await fetch('https://api.openai.com/v1/chat/completions', {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-    body: JSON.stringify({ model, messages, temperature: 0.7, response_format: { type: 'json_object' } }),
-  });
-  if (!resp.ok) { logger.error('OpenAI error', await resp.text()); return null; }
-  const data = await resp.json();
-  try { return JSON.parse(data.choices[0].message.content); } catch { return null; }
-}
-
-function stubPlan({ goal, time_available_min, muscle_groups, equipment_available }) {
+function stubPlan({ goal, time_available_min }) {
   const duration = time_available_min ?? 45;
   return {
     exercises: [
       { order: 1, name: 'Calentamiento general', muscle_group: 'full body', sets: 1, reps: null, rest_seconds: 60, notes: '5 min de movimiento articular' },
-      { order: 2, name: 'Sentadilla', muscle_group: 'piernas', sets: 4, reps: 12, suggested_weight_kg: null, rest_seconds: 90 },
-      { order: 3, name: 'Press de banca', muscle_group: 'pecho', sets: 4, reps: 10, suggested_weight_kg: null, rest_seconds: 90 },
-      { order: 4, name: 'Dominadas asistidas', muscle_group: 'espalda', sets: 3, reps: 8, suggested_weight_kg: null, rest_seconds: 90 },
-      { order: 5, name: 'Curl de bíceps', muscle_group: 'brazos', sets: 3, reps: 12, suggested_weight_kg: null, rest_seconds: 60 },
+      { order: 2, name: 'Sentadilla',            muscle_group: 'piernas',   sets: 4, reps: 12,  suggested_weight_kg: null, rest_seconds: 90 },
+      { order: 3, name: 'Press de banca',        muscle_group: 'pecho',     sets: 4, reps: 10,  suggested_weight_kg: null, rest_seconds: 90 },
+      { order: 4, name: 'Dominadas asistidas',   muscle_group: 'espalda',   sets: 3, reps: 8,   suggested_weight_kg: null, rest_seconds: 90 },
+      { order: 5, name: 'Curl de bíceps',        muscle_group: 'brazos',    sets: 3, reps: 12,  suggested_weight_kg: null, rest_seconds: 60 },
     ],
     estimated_duration_min: duration,
-    summary: `Rutina de ${duration} min enfocada en ${goal || 'fuerza general'}.`,
-    warmup:  'Movilidad articular y cardio suave 5 minutos.',
+    summary:  `Rutina de ${duration} min enfocada en ${goal || 'fuerza general'}.`,
+    warmup:   'Movilidad articular y cardio suave 5 minutos.',
     cooldown: 'Elongación estática 5 minutos.',
+  };
+}
+
+function stubReroute({ remaining_time_min }) {
+  return {
+    remaining_exercises:     [],
+    estimated_remaining_min: remaining_time_min ?? 15,
+    reasoning:               'Plan ajustado al tiempo restante disponible.',
+    adjustments_made:        'Se simplificó la rutina para completarla en el tiempo disponible.',
   };
 }
 
@@ -45,21 +41,35 @@ export async function listMine(userId, { limit, offset, page, perPage }) {
 }
 
 export async function create(userId, { activity_id, goal, time_available_min, equipment_available, muscle_groups }) {
-  let aiPlan = null;
   const aiInput = { goal, time_available_min, equipment_available, muscle_groups };
-  const aiResult = await callOpenAI([
-    { role: 'system', content: 'You are a professional fitness trainer. Generate a gym workout plan as JSON with keys: exercises (array), estimated_duration_min, summary, warmup, cooldown. Each exercise: order, name, muscle_group, sets, reps, suggested_weight_kg, rest_seconds, notes.' },
-    { role: 'user',   content: `Goal: ${goal || 'general fitness'}. Time: ${time_available_min || 45} min. Equipment: ${equipment_available || 'full gym'}. Muscle groups: ${(muscle_groups || []).join(', ') || 'full body'}.` },
-  ]);
-  aiPlan = aiResult ?? stubPlan(aiInput);
 
-  const result = await query(
+  const result = await chatJSON({
+    jsonMode: true,
+    messages: [
+      { role: 'system', content: 'You are a professional fitness trainer. Generate a gym workout plan as JSON with keys: exercises (array), estimated_duration_min, summary, warmup, cooldown. Each exercise: order, name, muscle_group, sets, reps, suggested_weight_kg, rest_seconds, notes.' },
+      { role: 'user',   content: `Goal: ${goal || 'general fitness'}. Time: ${time_available_min || 45} min. Equipment: ${equipment_available || 'full gym'}. Muscle groups: ${(muscle_groups || []).join(', ') || 'full body'}.` },
+    ],
+  });
+
+  const aiPlan = result.ok ? result.data : stubPlan(aiInput);
+  const aiMode = result.ok ? 'real'      : 'stub';
+
+  // Best-effort usage logging — never let it block the user response.
+  aiRepo.logUsage({
+    userId, endpoint: 'gym_plan',
+    model:  result.ok ? result.model : getModel(),
+    usage:  result.usage,
+    status: result.ok ? 'ok' : (result.reason === 'no_api_key' ? 'stub' : 'error'),
+  }).catch(() => {});
+
+  const insert = await query(
     `INSERT INTO gym_sessions (user_id, activity_id, goal, time_available_min, equipment_available, muscle_groups, ai_plan)
      VALUES (?,?,?,?,?,?,?)`,
     [userId, activity_id ?? null, goal ?? null, time_available_min ?? null,
      equipment_available ?? null, muscle_groups ?? null, JSON.stringify(aiPlan)]
   );
-  return getById(userId, result.insertId);
+  const session = await getById(userId, insert.insertId);
+  return { ...session, ai_mode: aiMode };
 }
 
 export async function getById(userId, id) {
@@ -105,16 +115,23 @@ export async function reroute(userId, sessionId, { completed_exercises, remainin
   const session = await queryOne(`SELECT * FROM gym_sessions WHERE id = ? AND user_id = ?`, [sessionId, userId]);
   if (!session) throw Errors.notFound('Sesión no encontrada.');
 
-  const aiResult = await callOpenAI([
-    { role: 'system', content: 'You are a professional fitness trainer. Adjust a mid-session workout. Return JSON with: remaining_exercises (array), estimated_remaining_min, reasoning, adjustments_made.' },
-    { role: 'user',   content: `Completed: ${(completed_exercises || []).join(', ')}. Remaining time: ${remaining_time_min} min.` },
-  ]);
+  const result = await chatJSON({
+    jsonMode: true,
+    messages: [
+      { role: 'system', content: 'You are a professional fitness trainer. Adjust a mid-session workout. Return JSON with: remaining_exercises (array), estimated_remaining_min, reasoning, adjustments_made.' },
+      { role: 'user',   content: `Completed: ${(completed_exercises || []).join(', ')}. Remaining time: ${remaining_time_min} min.` },
+    ],
+  });
 
-  if (aiResult) return aiResult;
-  return {
-    remaining_exercises:     [],
-    estimated_remaining_min: remaining_time_min ?? 15,
-    reasoning:               'Plan ajustado al tiempo restante disponible.',
-    adjustments_made:        'Se simplificó la rutina para completarla en el tiempo disponible.',
-  };
+  const payload = result.ok ? result.data : stubReroute({ remaining_time_min });
+  const aiMode  = result.ok ? 'real'      : 'stub';
+
+  aiRepo.logUsage({
+    userId, endpoint: 'gym_reroute',
+    model:  result.ok ? result.model : getModel(),
+    usage:  result.usage,
+    status: result.ok ? 'ok' : (result.reason === 'no_api_key' ? 'stub' : 'error'),
+  }).catch(() => {});
+
+  return { ...payload, ai_mode: aiMode };
 }
