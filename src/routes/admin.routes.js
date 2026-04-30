@@ -26,4 +26,9 @@ router.get ('/offers',                  requireAuth, requireRole('admin'), ctrl.
 router.post('/offers/:id/approve',      requireAuth, requireRole('admin'), ctrl.approveOffer);
 router.post('/offers/:id/reject',       requireAuth, requireRole('admin'), ctrl.rejectOffer);
 
+// Activities approval
+router.get ('/activities',              requireAuth, requireRole('admin'), ctrl.listDraftActivities);
+router.post('/activities/:id/approve',  requireAuth, requireRole('admin'), ctrl.approveActivity);
+router.post('/activities/:id/reject',   requireAuth, requireRole('admin'), ctrl.rejectActivity);
+
 export default router;

@@ -3,7 +3,7 @@ import * as aiService   from '../services/ai.service.js';
 import * as userRepo    from '../repositories/user.repository.js';
 import * as provRepo    from '../repositories/provider.repository.js';
 import * as offerService from '../services/offer.service.js';
-import { queryOne }     from '../db.js';
+import { query, queryOne } from '../db.js';
 import { parsePagination, paginatedResponse } from '../utils/paginate.js';
 import { Errors } from '../utils/errors.js';
 
@@ -153,5 +153,43 @@ export async function approveOffer(req, res, next) {
 export async function rejectOffer(req, res, next) {
   try {
     res.json(await offerService.reject(Number(req.params.id), req.body.reason ?? null));
+  } catch (err) { next(err); }
+}
+
+// ── Activity approval ─────────────────────────────────────────────────────────
+
+export async function listDraftActivities(req, res, next) {
+  try {
+    const rows = await query(
+      `SELECT a.*, p.name AS provider_name
+       FROM activities a
+       LEFT JOIN providers p ON a.provider_id = p.id
+       WHERE a.status = 'draft'
+       ORDER BY a.created_at DESC
+       LIMIT 100`
+    );
+    res.json({ items: rows });
+  } catch (err) { next(err); }
+}
+
+export async function approveActivity(req, res, next) {
+  try {
+    const rows = await query(
+      `UPDATE activities SET status = 'active', updated_at = NOW() WHERE id = ? RETURNING *`,
+      [Number(req.params.id)]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Not found' });
+    res.json(rows[0]);
+  } catch (err) { next(err); }
+}
+
+export async function rejectActivity(req, res, next) {
+  try {
+    const rows = await query(
+      `UPDATE activities SET status = 'cancelled', updated_at = NOW() WHERE id = ? RETURNING *`,
+      [Number(req.params.id)]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Not found' });
+    res.json(rows[0]);
   } catch (err) { next(err); }
 }
