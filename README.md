@@ -328,10 +328,11 @@ Suite con **Vitest** + **Supertest** (tests de integración HTTP) en `tests/`.
 docker compose up --build
 ```
 
-> ⚠️ El `docker-compose.yml` incluido levanta un contenedor MySQL heredado de una versión previa.
-> El backend actual usa **PostgreSQL** vía `DATABASE_URL`; para correr 100 % en local apuntá
-> `DATABASE_URL` a un Postgres propio o a Supabase. Ajustá el `docker-compose.yml` a Postgres
-> si querés la base containerizada.
+Levanta dos servicios: la **API** y un **PostgreSQL 16** que se inicializa automáticamente
+con los scripts de `sql/` (`schema`, `migrations`, `ai-extras`). El `DATABASE_URL` de la API
+se sobreescribe para apuntar al contenedor `db`, así que funciona out-of-the-box; el resto de
+las variables se toman de tu `.env`. Para usar Supabase en vez del Postgres local, definí
+`DATABASE_URL` en `.env` y quitá el servicio `db`.
 
 La imagen (`Dockerfile`) usa `node:20-alpine`, instala solo dependencias de producción,
 copia `src/` y `sql/`, expone el puerto `3000` y arranca con `node src/server.js`.
