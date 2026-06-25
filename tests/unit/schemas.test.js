@@ -131,7 +131,7 @@ describe('createActivitySchema', () => {
     expect(r.success).toBe(false);
   });
   it('accepts valid difficulty values', () => {
-    for (const d of ['beginner', 'intermediate', 'advanced', 'all_levels']) {
+    for (const d of ['baja', 'media', 'alta']) {
       expect(createActivitySchema.safeParse({ title: 'T', difficulty: d }).success).toBe(true);
     }
   });
@@ -196,12 +196,12 @@ describe('createProviderSchema', () => {
     const r = createProviderSchema.safeParse({ name: 'CrossFit BsAs' });
     expect(r.success).toBe(true);
   });
-  it('rejects invalid email', () => {
-    const r = createProviderSchema.safeParse({ name: 'Gym', email: 'not-email' });
+  it('rejects out-of-range lat', () => {
+    const r = createProviderSchema.safeParse({ name: 'Gym', lat: 200 });
     expect(r.success).toBe(false);
   });
   it('rejects invalid website URL', () => {
-    const r = createProviderSchema.safeParse({ name: 'Gym', website: 'not-a-url' });
+    const r = createProviderSchema.safeParse({ name: 'Gym', website_url: 'not-a-url' });
     expect(r.success).toBe(false);
   });
 });
