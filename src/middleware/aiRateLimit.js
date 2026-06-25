@@ -11,10 +11,13 @@
 // Keying: req.user.id when authenticated, otherwise the IP. This sits AFTER
 // requireAuth in the router chain so user-id is always present in practice.
 
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 
 function keyByUser(req) {
-  return req.user?.id ? `u:${req.user.id}` : `ip:${req.ip}`;
+  // Fall back to IP only for unauthenticated requests. Route the IP through
+  // ipKeyGenerator so IPv6 clients are bucketed by prefix (avoids the
+  // ERR_ERL_KEY_GEN_IPV6 validation error and per-/128 bypass).
+  return req.user?.id ? `u:${req.user.id}` : `ip:${ipKeyGenerator(req.ip)}`;
 }
 
 const commonOpts = {
