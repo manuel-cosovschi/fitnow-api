@@ -21,6 +21,14 @@ export const coachHistoryQuerySchema = z.object({
   before: z.coerce.number().int().positive().optional(), // pagination cursor: id of last seen row
 });
 
+// ── Post-run analysis ──────────────────────────────────────────────────────────
+
+export const runAnalysisRequestSchema = z.object({
+  // The session is fetched server-side so the analysis is grounded on real,
+  // owned data — the client only points at which finished run to analyze.
+  session_id: z.coerce.number().int().positive(),
+});
+
 // ── Form Check ────────────────────────────────────────────────────────────────
 
 export const FORM_EXERCISES = ['squat', 'pushup', 'plank', 'deadlift'];

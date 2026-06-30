@@ -2,12 +2,13 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { validateBody, validateQuery } from '../middleware/validate.js';
-import { aiLimiter } from '../middleware/aiRateLimit.js';
+import { aiLimiter, aiHeavyLimiter } from '../middleware/aiRateLimit.js';
 import {
   coachRequestSchema,
   coachHistoryQuerySchema,
   formCheckSubmitSchema,
   formCheckListQuerySchema,
+  runAnalysisRequestSchema,
 } from '../schemas/ai.schemas.js';
 import * as ctrl from '../controllers/ai.controller.js';
 
@@ -39,6 +40,15 @@ router.get('/form-check/mine',
   requireAuth,
   validateQuery(formCheckListQuerySchema),
   ctrl.formCheckList,
+);
+
+// Post-run analysis — grounded on the real session, LLM output validated.
+// Heavy limiter: each call can hit OpenAI.
+router.post('/run-analysis',
+  requireAuth,
+  aiHeavyLimiter,
+  validateBody(runAnalysisRequestSchema),
+  ctrl.runAnalysis,
 );
 
 export default router;

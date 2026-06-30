@@ -2,6 +2,9 @@
 import logger from '../utils/logger.js';
 import { chatStream, getModel, isAiEnabled } from '../utils/openai.js';
 import * as aiRepo from '../repositories/ai.repository.js';
+import * as runService from '../services/run.service.js';
+import { analyzeRun } from '../services/runAnalysis.service.js';
+import { screenCoachMessage } from '../utils/aiGuardrails.js';
 
 function buildSystemPrompt(context) {
   const parts = ['Eres FitNow Coach, un entrenador deportivo virtual experto en running y gimnasio. Respondés siempre en español, de forma motivadora y concisa.'];
@@ -40,6 +43,21 @@ export async function coach(req, res, next) {
     // history captures everything the user said even if the upstream errors.
     await aiRepo.saveCoachTurn({ userId, role: 'user', content: message, aiMode: 'real' }).catch(() => {});
 
+    // INPUT FILTER: screen the message before it reaches the model. Unsafe,
+    // off-policy or prompt-injection messages get a canned reply and never
+    // touch OpenAI.
+    const screen = screenCoachMessage(message);
+    if (!screen.allow) {
+      writeSseHeaders(res);
+      for (const token of screen.reply.split(' ')) {
+        res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: token + ' ' } }] })}\n\n`);
+      }
+      res.write('data: [DONE]\n\n');
+      await aiRepo.saveCoachTurn({ userId, role: 'coach', content: screen.reply, aiMode: 'filtered' }).catch(() => {});
+      await aiRepo.logUsage({ userId, endpoint: 'coach', model: getModel(), usage: null, status: 'filtered' }).catch(() => {});
+      return res.end();
+    }
+
     if (!isAiEnabled()) {
       writeSseHeaders(res);
       const stubText = emitStubStream(res);
@@ -51,7 +69,7 @@ export async function coach(req, res, next) {
     const upstream = await chatStream({
       messages: [
         { role: 'system', content: buildSystemPrompt(context) },
-        { role: 'user',   content: message },
+        { role: 'user',   content: screen.text },
       ],
     });
 
@@ -124,5 +142,18 @@ export async function formCheckList(req, res, next) {
     const { limit, exercise } = req.query;
     const items = await aiRepo.listFormChecks({ userId: req.user.id, limit, exercise });
     res.json({ items });
+  } catch (err) { next(err); }
+}
+
+// ── Post-run analysis ──────────────────────────────────────────────────────────
+
+export async function runAnalysis(req, res, next) {
+  try {
+    // getSession enforces ownership and 404s on a missing session, so the
+    // analysis is always grounded on the caller's real, finished run.
+    const session  = await runService.getSession(Number(req.body.session_id), req.user.id);
+    const analysis = await analyzeRun(session);
+    await aiRepo.logUsage({ userId: req.user.id, endpoint: 'run-analysis', model: getModel(), usage: null, status: analysis.ai_mode }).catch(() => {});
+    res.json(analysis);
   } catch (err) { next(err); }
 }
