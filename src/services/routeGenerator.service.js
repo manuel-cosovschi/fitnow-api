@@ -22,9 +22,9 @@ const tripCache = new LRUCache({
  * Build a stable cache key from the request shape. We round lat/lng to ~110m
  * buckets so nearby starts share cache entries.
  */
-function cacheKey(lat, lng, distance_m, primaryBearing) {
+function cacheKey(lat, lng, distance_m, variant) {
   const round = (n) => Math.round(n * 1000) / 1000; // ~110m precision
-  return `${round(lat)}|${round(lng)}|${distance_m}|${primaryBearing}`;
+  return `${round(lat)}|${round(lng)}|${distance_m}|${variant}`;
 }
 
 /**
@@ -115,6 +115,60 @@ const TEMPLATES = [
   },
 ];
 
+// How close the road distance must get to the requested distance before we
+// stop refining (±12%). Roads detour, so the straight-line leg that produces a
+// given road distance is unknown up front — we converge on it iteratively.
+const DISTANCE_TOLERANCE = 0.12;
+const MAX_REFINE_ITERS   = 3;
+
+/**
+ * Build one route for a template, refining the leg length until OSRM's road
+ * distance lands within DISTANCE_TOLERANCE of the requested distance. Returns
+ * the closest attempt. Falls back to a geometric loop (exact circumference) if
+ * OSRM is unavailable.
+ */
+async function buildRoute(tmpl, origin_lat, origin_lng, distance_m) {
+  const primaryBearing = tmpl.bearings[0];
+  let legFraction = tmpl.legFraction;
+  let best = null;
+
+  for (let iter = 0; iter < MAX_REFINE_ITERS; iter++) {
+    const legDist   = distance_m * legFraction;
+    const waypoints = [{ lat: origin_lat, lng: origin_lng }];
+    for (const bearing of tmpl.bearings) {
+      waypoints.push(offsetCoord(origin_lat, origin_lng, bearing, legDist));
+    }
+
+    let trip;
+    try {
+      trip = await fetchOsrmTrip(waypoints);
+    } catch {
+      // OSRM unavailable: a geometric circle whose circumference is exactly the
+      // requested distance is the most faithful answer we can give.
+      return {
+        distance_m: distance_m,
+        geojson:    circularFallback(origin_lat, origin_lng, distance_m, primaryBearing),
+      };
+    }
+
+    const actual    = Math.round(trip.distance);
+    const candidate = { distance_m: actual, geojson: trip.geometry };
+    if (!best || Math.abs(actual - distance_m) < Math.abs(best.distance_m - distance_m)) {
+      best = candidate;
+    }
+
+    const error = Math.abs(actual - distance_m) / distance_m;
+    if (error <= DISTANCE_TOLERANCE) return candidate;
+
+    // Scale the leg toward the target (clamped so one noisy reading can't send
+    // the next iteration wild) and try again.
+    const scale = distance_m / actual;
+    legFraction = legFraction * Math.min(1.5, Math.max(0.55, scale));
+  }
+
+  return best;
+}
+
 /**
  * Generate 3 route options for the given origin and distance.
  * Cached per (lat-bucket, lng-bucket, distance, bearing) — see tripCache above.
@@ -122,39 +176,15 @@ const TEMPLATES = [
 export async function generateRoutes({ origin_lat, origin_lng, distance_m }) {
   const items = await Promise.all(
     TEMPLATES.map(async (tmpl, idx) => {
-      const legDist = distance_m * tmpl.legFraction;
-      const primaryBearing = tmpl.bearings[0];
-      const key = cacheKey(origin_lat, origin_lng, distance_m, primaryBearing);
+      // Key by the route variant (not its bearing) — "directa" and "circular"
+      // share bearing 0 and would otherwise collide into one identical route.
+      const key = cacheKey(origin_lat, origin_lng, distance_m, tmpl.preference);
 
-      const cached = tripCache.get(key);
-      if (cached) {
-        return {
-          id: idx + 1,
-          preference: tmpl.preference,
-          label:      tmpl.label,
-          rationale:  tmpl.rationale,
-          ...cached,
-        };
+      let payload = tripCache.get(key);
+      if (!payload) {
+        payload = await buildRoute(tmpl, origin_lat, origin_lng, distance_m);
+        tripCache.set(key, payload);
       }
-
-      const waypoints = [{ lat: origin_lat, lng: origin_lng }];
-      for (const bearing of tmpl.bearings) {
-        waypoints.push(offsetCoord(origin_lat, origin_lng, bearing, legDist));
-      }
-
-      let geojson;
-      let actual_distance_m = distance_m;
-
-      try {
-        const trip = await fetchOsrmTrip(waypoints);
-        geojson = trip.geometry;
-        actual_distance_m = Math.round(trip.distance);
-      } catch {
-        geojson = circularFallback(origin_lat, origin_lng, distance_m, primaryBearing);
-      }
-
-      const payload = { distance_m: actual_distance_m, geojson };
-      tripCache.set(key, payload);
 
       return {
         id: idx + 1,
