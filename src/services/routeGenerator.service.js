@@ -120,58 +120,58 @@ const TEMPLATES = [
 ];
 
 // How close the road distance must get to the requested distance before we
-// stop refining (±12%). Roads detour, so the straight-line leg that produces a
-// given road distance is unknown up front — we converge on it iteratively.
-const DISTANCE_TOLERANCE = 0.12;
-const MAX_REFINE_ITERS   = 3;
+// accept the route (±5%). If OSRM can't get within this, we return an exact
+// geometric loop instead, so the shown distance always matches what was asked.
+const DISTANCE_TOLERANCE = 0.05;
+const MAX_REFINE_ITERS   = 7;
 
 /**
- * Build one route for a template, refining the leg length until OSRM's road
- * distance lands within DISTANCE_TOLERANCE of the requested distance. Returns
- * the closest attempt. Falls back to a geometric loop (exact circumference) if
- * OSRM is unavailable.
+ * Build one route for a template. The road detour factor is impredecible and
+ * varies a lot by zone, so instead of proportional scaling we BINARY-SEARCH the
+ * leg length: distance grows with the leg, so we always converge. If OSRM still
+ * can't land within tolerance (or is unavailable), we fall back to a geometric
+ * loop whose length is EXACTLY the requested distance.
  */
-// Arma UNA ruta y la va corrigiendo: mide lo que da OSRM y reajusta hasta acercarse a la distancia que pediste.
+// Arma UNA ruta buscando por bisección el largo del tramo hasta que la distancia por calles coincida con la pedida; si no lo logra, garantiza la distancia exacta con un loop geométrico.
 async function buildRoute(tmpl, origin_lat, origin_lng, distance_m) {
   const primaryBearing = tmpl.bearings[0];
-  let legFraction = tmpl.legFraction;
-  let best = null;
 
-  for (let iter = 0; iter < MAX_REFINE_ITERS; iter++) {
+  const tryLeg = async (legFraction) => {
     const legDist   = distance_m * legFraction;
     const waypoints = [{ lat: origin_lat, lng: origin_lng }];
     for (const bearing of tmpl.bearings) {
       waypoints.push(offsetCoord(origin_lat, origin_lng, bearing, legDist));
     }
+    const trip = await fetchOsrmTrip(waypoints); // puede tirar error
+    return { distance_m: Math.round(trip.distance), geojson: trip.geometry };
+  };
 
-    let trip;
-    try {
-      trip = await fetchOsrmTrip(waypoints);
-    } catch {
-      // OSRM unavailable: a geometric circle whose circumference is exactly the
-      // requested distance is the most faithful answer we can give.
-      return {
-        distance_m: distance_m,
-        geojson:    circularFallback(origin_lat, origin_lng, distance_m, primaryBearing),
-      };
+  let lo = 0.1, hi = 1.2, best = null;
+  try {
+    for (let iter = 0; iter < MAX_REFINE_ITERS; iter++) {
+      const mid  = (lo + hi) / 2;
+      const cand = await tryLeg(mid);
+      if (!best || Math.abs(cand.distance_m - distance_m) < Math.abs(best.distance_m - distance_m)) {
+        best = cand;
+      }
+      const error = Math.abs(cand.distance_m - distance_m) / distance_m;
+      if (error <= DISTANCE_TOLERANCE) return cand;
+      // La distancia crece con el largo del tramo: ajustamos el intervalo.
+      if (cand.distance_m < distance_m) lo = mid; else hi = mid;
     }
-
-    const actual    = Math.round(trip.distance);
-    const candidate = { distance_m: actual, geojson: trip.geometry };
-    if (!best || Math.abs(actual - distance_m) < Math.abs(best.distance_m - distance_m)) {
-      best = candidate;
-    }
-
-    const error = Math.abs(actual - distance_m) / distance_m;
-    if (error <= DISTANCE_TOLERANCE) return candidate;
-
-    // Scale the leg toward the target (clamped so one noisy reading can't send
-    // the next iteration wild) and try again.
-    const scale = distance_m / actual;
-    legFraction = legFraction * Math.min(1.5, Math.max(0.55, scale));
+  } catch {
+    // OSRM no disponible → caemos al loop geométrico exacto de abajo.
   }
 
-  return best;
+  // Garantía de distancia: si OSRM no llegó lo bastante cerca (o falló), un
+  // círculo con la circunferencia justa da EXACTAMENTE la distancia pedida.
+  if (best && Math.abs(best.distance_m - distance_m) / distance_m <= DISTANCE_TOLERANCE) {
+    return best;
+  }
+  return {
+    distance_m: distance_m,
+    geojson:    circularFallback(origin_lat, origin_lng, distance_m, primaryBearing),
+  };
 }
 
 /**
