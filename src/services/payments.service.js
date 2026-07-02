@@ -39,6 +39,7 @@ async function getOrCreatePendingEnrollment(userId, { activity_id, plan_name, co
 
 // ─── Stripe ───────────────────────────────────────────────────────────────────
 
+// Habla con Stripe para crear la intención de pago.
 export async function createStripeIntent(userId, { activity_id, plan_name, coupon_code }) {
   const STRIPE_KEY = process.env.STRIPE_SECRET_KEY;
   if (!STRIPE_KEY) throw Errors.internal('Stripe no configurado.');
@@ -69,6 +70,7 @@ export async function createStripeIntent(userId, { activity_id, plan_name, coupo
   return { client_secret: clientSecret, enrollment_id: enrollmentId, amount: amountCents, currency: 'ars' };
 }
 
+// Procesa el aviso de Stripe: si el pago está OK, activa la inscripción (una sola vez).
 export async function handleStripeWebhook(rawBody, signature) {
   const SECRET = process.env.STRIPE_WEBHOOK_SECRET;
   if (!SECRET) { logger.warn('STRIPE_WEBHOOK_SECRET no configurado'); return; }
@@ -91,6 +93,7 @@ export async function handleStripeWebhook(rawBody, signature) {
 
 // ─── MercadoPago ──────────────────────────────────────────────────────────────
 
+// Crea la preferencia de pago en MercadoPago.
 export async function createMpPreference(userId, { activity_id, plan_name, coupon_code }) {
   const TOKEN = process.env.MERCADOPAGO_ACCESS_TOKEN;
   if (!TOKEN) throw Errors.internal('MercadoPago no configurado.');
@@ -161,6 +164,7 @@ function verifyMpSignature(headers, dataId) {
   }
 }
 
+// Procesa el aviso de MercadoPago, verificando que sea auténtico.
 export async function handleMpWebhook(body, query_params, headers = {}) {
   const TOKEN = process.env.MERCADOPAGO_ACCESS_TOKEN;
   if (!TOKEN) return;
@@ -247,6 +251,7 @@ async function activateEnrollment(enrollmentId, gateway, gatewayRef) {
 
 // ─── Coupons ──────────────────────────────────────────────────────────────────
 
+// Chequea que el cupón exista y calcula el descuento.
 export async function validateCoupon({ code, activity_id }) {
   if (!code) throw Errors.badRequest('code requerido.');
   const coupon = await queryOne(
@@ -282,6 +287,7 @@ export async function validateCoupon({ code, activity_id }) {
 
 // ─── Payment methods ──────────────────────────────────────────────────────────
 
+// Trae tus métodos de pago.
 export async function listMethods(userId) {
   const items = await query(
     `SELECT id, provider, brand, last4, expiry_month, expiry_year, holder_name, is_default
@@ -291,12 +297,14 @@ export async function listMethods(userId) {
   return { items };
 }
 
+// Borra un método.
 export async function deleteMethod(userId, id) {
   const method = await queryOne(`SELECT id FROM saved_payment_methods WHERE id = ? AND user_id = ?`, [id, userId]);
   if (!method) throw Errors.notFound('Método de pago no encontrado.');
   await query(`DELETE FROM saved_payment_methods WHERE id = ?`, [id]);
 }
 
+// Marca uno como default.
 export async function setDefaultMethod(userId, id) {
   const method = await queryOne(`SELECT id FROM saved_payment_methods WHERE id = ? AND user_id = ?`, [id, userId]);
   if (!method) throw Errors.notFound('Método de pago no encontrado.');
@@ -306,6 +314,7 @@ export async function setDefaultMethod(userId, id) {
 
 // ─── Refunds ──────────────────────────────────────────────────────────────────
 
+// Registra un pedido de reembolso.
 export async function requestRefund(userId, { enrollment_id, reason, details }) {
   if (!enrollment_id || !reason) throw Errors.badRequest('enrollment_id y reason son requeridos.');
   const enrollment = await queryOne(`SELECT * FROM enrollments WHERE id = ? AND user_id = ?`, [enrollment_id, userId]);

@@ -1,6 +1,7 @@
 // src/controllers/analytics.controller.js
 import { queryOne, query } from '../db.js';
 
+// Resumen de tus corridas.
 export async function runningSummary(req, res, next) {
   try {
     const uid = req.user.id;
@@ -22,6 +23,7 @@ export async function runningSummary(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// Tus corridas por semana (para el gráfico).
 export async function runningWeekly(req, res, next) {
   try {
     const uid = req.user.id;
@@ -41,6 +43,7 @@ export async function runningWeekly(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// Resumen de tu gimnasio.
 export async function gymSummary(req, res, next) {
   try {
     const uid = req.user.id;
@@ -70,6 +73,7 @@ export async function gymSummary(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// Tu gimnasio por semana.
 export async function gymWeekly(req, res, next) {
   try {
     const uid = req.user.id;
@@ -88,6 +92,7 @@ export async function gymWeekly(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// Qué músculos trabajaste (distribución).
 export async function gymMuscleDist(req, res, next) {
   try {
     const uid = req.user.id;
@@ -110,6 +115,7 @@ export async function gymMuscleDist(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// Tu racha de días activos.
 export async function streak(req, res, next) {
   try {
     const uid = req.user.id;

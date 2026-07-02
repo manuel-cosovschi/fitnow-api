@@ -42,6 +42,7 @@ function signRefreshJwt(user) {
   );
 }
 
+// Genera el token JWT firmado que te identifica en cada pedido.
 export function signToken(user) {
   return jwt.sign(
     { id: user.id, email: user.email, name: user.name, role: user.role ?? 'user', provider_id: user.provider_id ?? null },
@@ -57,6 +58,7 @@ function buildAuthResponse(user, withRefresh = true) {
   return { token, refresh_token, user: { id: safeUser.id, name: safeUser.name, email: safeUser.email, role: safeUser.role, provider_id: safeUser.provider_id ?? null } };
 }
 
+// Crea una cuenta nueva de atleta (guarda la contraseña hasheada, nunca en texto plano) y te devuelve el token.
 export async function register({ name, email, password }) {
   if (!name?.trim())  throw Errors.badRequest('El nombre es requerido.');
   if (!email?.trim()) throw Errors.badRequest('El email es requerido.');
@@ -70,6 +72,7 @@ export async function register({ name, email, password }) {
   return buildAuthResponse(user);
 }
 
+// Verifica email y contraseña; si están bien, te devuelve el token.
 export async function login({ email, password }) {
   if (!email || !password) throw Errors.badRequest('Email y contraseña son requeridos.');
 
@@ -82,6 +85,7 @@ export async function login({ email, password }) {
   return buildAuthResponse(user);
 }
 
+// Renueva el token de acceso usando el de refresco, para no volver a loguearte.
 export async function refreshToken(rawToken) {
   if (!rawToken) throw Errors.badRequest('refresh_token requerido.');
   let payload;
@@ -97,6 +101,7 @@ export async function refreshToken(rawToken) {
   return { token, refresh_token };
 }
 
+// Verifica tu email con el código que te llegó.
 export async function verifyEmail({ token }) {
   if (!token) throw Errors.badRequest('Token requerido.');
   const record = await queryOne(
@@ -109,6 +114,7 @@ export async function verifyEmail({ token }) {
   return { status: 'ok' };
 }
 
+// Login con 'magic link': un enlace que te loguea sin contraseña.
 export async function magicLink({ token }) {
   if (!token) throw Errors.badRequest('Token requerido.');
   const record = await queryOne(
@@ -122,6 +128,7 @@ export async function magicLink({ token }) {
   return buildAuthResponse(user);
 }
 
+// Verifica el segundo factor (código) cuando tenés el 2FA activado.
 export async function verify2fa({ temp_token, code }) {
   if (!temp_token || !code) throw Errors.badRequest('temp_token y code son requeridos.');
   let payload;
@@ -141,6 +148,7 @@ export async function verify2fa({ temp_token, code }) {
   return buildAuthResponse(user);
 }
 
+// Login con 'Iniciar sesión con Apple'.
 export async function appleSignIn({ identity_token, name }) {
   if (!identity_token) throw Errors.badRequest('identity_token requerido.');
   let applePayload;
@@ -171,12 +179,14 @@ export async function appleSignIn({ identity_token, name }) {
   return buildAuthResponse(user);
 }
 
+// Devuelve los datos de tu perfil.
 export async function getMe(userId) {
   const user = await userRepo.findById(userId);
   if (!user) throw Errors.notFound('Usuario no encontrado.');
   return user;
 }
 
+// Actualiza los datos de tu perfil.
 export async function updateMe(userId, fields) {
   if (fields.email) {
     const other = await userRepo.findByEmail(fields.email.toLowerCase().trim());
@@ -186,6 +196,7 @@ export async function updateMe(userId, fields) {
   return userRepo.update(userId, fields);
 }
 
+// Arranca el proceso de recuperar contraseña (manda el enlace por mail).
 export async function forgotPassword(email) {
   const user = await userRepo.findByEmail(email.toLowerCase().trim());
   // Always resolve without error to prevent email enumeration
@@ -199,6 +210,7 @@ export async function forgotPassword(email) {
   await mailer.sendPasswordReset(user.email, token);
 }
 
+// Cambia la contraseña usando el enlace de recuperación.
 export async function resetPassword(token, newPassword) {
   const hash   = crypto.createHash('sha256').update(token).digest('hex');
   const record = await userRepo.findResetToken(hash);
@@ -211,6 +223,7 @@ export async function resetPassword(token, newPassword) {
   await userRepo.markResetTokenUsed(record.id);
 }
 
+// Registra un proveedor (gimnasio o entrenador) junto con su cuenta.
 export async function registerProvider({ name, email, password, provider_name, provider_kind, provider_description, provider_address, provider_city, provider_phone, provider_lat, provider_lng }) {
   if (!name?.trim())          throw Errors.badRequest('El nombre es requerido.');
   if (!email?.trim())         throw Errors.badRequest('El email es requerido.');
@@ -238,6 +251,7 @@ export async function registerProvider({ name, email, password, provider_name, p
   return { user: updatedUser, token: signToken(updatedUser), provider };
 }
 
+// Cambia tu contraseña estando logueado (te pide la actual).
 export async function changePassword(userId, { current_password, new_password }) {
   if (!current_password || !new_password) throw Errors.badRequest('Campos requeridos.');
   if (new_password.length < 6) throw Errors.badRequest('La nueva contraseña debe tener al menos 6 caracteres.');

@@ -3,6 +3,7 @@ import * as hazardRepo from '../repositories/hazard.repository.js';
 import { parsePagination, paginatedResponse } from '../utils/paginate.js';
 import { Errors } from '../utils/errors.js';
 
+// Guarda el peligro reportado.
 export async function create(userId, { lat, lng, type, note, severity }) {
   if (!lat || !lng)  throw Errors.badRequest('lat y lng son requeridos.');
   if (!type?.trim()) throw Errors.badRequest('type es requerido.');
@@ -19,6 +20,7 @@ export async function create(userId, { lat, lng, type, note, severity }) {
   });
 }
 
+// Busca peligros dentro de un radio.
 export async function findNear(queryParams) {
   const { lat, lng, radius_m = 1000 } = queryParams;
   if (!lat || !lng) throw Errors.badRequest('lat y lng son requeridos.');
@@ -30,6 +32,7 @@ export async function findNear(queryParams) {
   });
 }
 
+// Suma un voto al peligro.
 export async function vote(hazardId, userId) {
   const hazard = await hazardRepo.findById(hazardId);
   if (!hazard) throw Errors.notFound('Peligro no encontrado.');
@@ -42,6 +45,7 @@ export async function vote(hazardId, userId) {
   return hazardRepo.findById(hazardId);
 }
 
+// Actualiza el estado.
 export async function updateStatus(hazardId, status) {
   const hazard = await hazardRepo.findById(hazardId);
   if (!hazard) throw Errors.notFound('Peligro no encontrado.');
@@ -52,6 +56,7 @@ export async function updateStatus(hazardId, status) {
   return hazardRepo.updateStatus(hazardId, status);
 }
 
+// Trae todos los peligros.
 export async function listAll(queryParams) {
   const { page, perPage, offset } = parsePagination(queryParams);
   const status = queryParams.status ?? null;

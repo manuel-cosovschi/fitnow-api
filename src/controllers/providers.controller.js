@@ -1,18 +1,21 @@
 // src/controllers/providers.controller.js
 import * as provService from '../services/provider.service.js';
 
+// Lista los proveedores (gimnasios, entrenadores, clubes).
 export async function list(req, res, next) {
   try {
     res.json(await provService.list(req.query));
   } catch (err) { next(err); }
 }
 
+// Detalle de un proveedor.
 export async function getById(req, res, next) {
   try {
     res.json(await provService.getById(Number(req.params.id)));
   } catch (err) { next(err); }
 }
 
+// Crea un proveedor.
 export async function create(req, res, next) {
   try {
     const provider = await provService.create(req.body);
@@ -20,30 +23,35 @@ export async function create(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// Edita un proveedor.
 export async function update(req, res, next) {
   try {
     res.json(await provService.update(Number(req.params.id), req.body, req.user));
   } catch (err) { next(err); }
 }
 
+// Activa un proveedor.
 export async function activate(req, res, next) {
   try {
     res.json(await provService.activate(Number(req.params.id)));
   } catch (err) { next(err); }
 }
 
+// Suspende un proveedor.
 export async function suspend(req, res, next) {
   try {
     res.json(await provService.suspend(Number(req.params.id)));
   } catch (err) { next(err); }
 }
 
+// Define los horarios de atención.
 export async function setHours(req, res, next) {
   try {
     res.json(await provService.setHours(Number(req.params.id), req.body.hours, req.user));
   } catch (err) { next(err); }
 }
 
+// Agrega un servicio/deporte que ofrece.
 export async function addService(req, res, next) {
   try {
     const svc = await provService.addService(Number(req.params.id), req.body, req.user);
@@ -51,12 +59,14 @@ export async function addService(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// Saca un servicio del proveedor.
 export async function removeService(req, res, next) {
   try {
     res.json(await provService.removeService(Number(req.params.id), Number(req.params.serviceId), req.user));
   } catch (err) { next(err); }
 }
 
+// Lista los deportes del proveedor.
 export async function getSports(req, res, next) {
   try {
     const services = await provService.getServices(Number(req.params.id));

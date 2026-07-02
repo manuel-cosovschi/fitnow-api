@@ -9,6 +9,7 @@ import { validateRunAnalysis } from '../utils/aiGuardrails.js';
 const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
 
 /** Derive the authoritative metrics from a finished run session. */
+// Saca los números REALES de tu corrida (distancia, ritmo, pulso, desnivel) desde la sesión guardada. Estos son los datos que no se le dejan inventar al modelo.
 export function computeRunMetrics(session = {}) {
   const distance_m = isNum(session.distance_m) ? session.distance_m : null;
   const duration_s = isNum(session.duration_s) ? session.duration_s : null;
@@ -37,12 +38,14 @@ export function computeRunMetrics(session = {}) {
   };
 }
 
+// Convierte el ritmo (segundos por km) al formato lindo, tipo 6:00/km.
 function formatPace(sPerKm) {
   const m = Math.floor(sPerKm / 60);
   const s = Math.round(sPerKm % 60);
   return `${m}:${String(s).padStart(2, '0')}/km`;
 }
 
+// Clasifica el ritmo en una etiqueta: rápido, sólido, moderado, etc.
 function paceBand(sPerKm) {
   if (sPerKm == null) return 'sin ritmo';
   if (sPerKm < 300) return 'muy rápido';
@@ -57,6 +60,7 @@ function paceBand(sPerKm) {
  * the answer when the LLM is disabled or its output fails validation, and as
  * the source of authoritative numbers when the LLM is used.
  */
+// Arma un análisis completo solo con tus números, sin IA. Se usa cuando no hay OpenAI o cuando la respuesta del modelo no pasa la validación.
 export function fallbackAnalysis(metrics) {
   const km = metrics.distance_km;
   const band = paceBand(metrics.pace_s_per_km);
@@ -106,6 +110,7 @@ export function fallbackAnalysis(metrics) {
   };
 }
 
+// Arma las instrucciones para el modelo, pidiéndole que devuelva un JSON con un formato fijo.
 function buildAnalysisMessages(metrics) {
   const system =
     'Sos FitNow Coach, un entrenador de running. Analizá la corrida del usuario y ' +
@@ -135,6 +140,7 @@ function buildAnalysisMessages(metrics) {
  * `ai_mode` is 'real' when the LLM enriched it, 'stub' when the deterministic
  * fallback was used (no key, upstream error, or output that failed validation).
  */
+// El corazón del análisis: calcula tus métricas, le pide el texto a la IA, valida que venga con el formato correcto y, si no, usa el análisis calculado. Los números siempre son los tuyos.
 export async function analyzeRun(session) {
   const metrics = computeRunMetrics(session);
   const grounded = fallbackAnalysis(metrics);

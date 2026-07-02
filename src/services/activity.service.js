@@ -3,6 +3,7 @@ import * as actRepo from '../repositories/activity.repository.js';
 import { parsePagination, paginatedResponse } from '../utils/paginate.js';
 import { Errors } from '../utils/errors.js';
 
+// La lógica para listar actividades con sus filtros.
 export async function list(queryParams) {
   const { page, perPage, offset } = parsePagination(queryParams);
   const where  = [];
@@ -33,6 +34,7 @@ export async function list(queryParams) {
   return paginatedResponse(items, { page, perPage, total });
 }
 
+// Trae la actividad y su proveedor.
 export async function getById(id) {
   const raw = await actRepo.findById(id);
   if (!raw) throw Errors.notFound('Actividad no encontrada.');
@@ -47,6 +49,7 @@ export async function getById(id) {
   };
 }
 
+// Crea la actividad en la base.
 export async function create(fields, requestingUser) {
   if (!fields.title?.trim()) throw Errors.badRequest('El título es requerido.');
 
@@ -59,6 +62,7 @@ export async function create(fields, requestingUser) {
   return actRepo.create({ ...fields, status: 'draft' });
 }
 
+// Actualiza la actividad.
 export async function update(id, fields, requestingUser) {
   const activity = await actRepo.findById(id);
   if (!activity) throw Errors.notFound('Actividad no encontrada.');
@@ -68,12 +72,14 @@ export async function update(id, fields, requestingUser) {
   return actRepo.update(id, fields);
 }
 
+// Pasa la actividad a activa.
 export async function activate(id) {
   const activity = await actRepo.findById(id);
   if (!activity) throw Errors.notFound('Actividad no encontrada.');
   return actRepo.update(id, { status: 'active' });
 }
 
+// Guarda un horario nuevo de la actividad.
 export async function addSession(activityId, fields) {
   const activity = await actRepo.findById(activityId);
   if (!activity) throw Errors.notFound('Actividad no encontrada.');
@@ -81,6 +87,7 @@ export async function addSession(activityId, fields) {
   return actRepo.createSession(activityId, fields);
 }
 
+// Guarda las opciones de la actividad.
 export async function updateSettings(id, fields, requestingUser) {
   const activity = await actRepo.findById(id);
   if (!activity) throw Errors.notFound('Actividad no encontrada.');
@@ -90,12 +97,14 @@ export async function updateSettings(id, fields, requestingUser) {
   return actRepo.updateSettings(id, fields);
 }
 
+// Trae las novedades del tablón.
 export async function listPosts(activityId) {
   const activity = await actRepo.findById(activityId);
   if (!activity) throw Errors.notFound('Actividad no encontrada.');
   return actRepo.listPosts(activityId);
 }
 
+// Crea una novedad.
 export async function createPost(activityId, body, requestingUser) {
   const activity = await actRepo.findById(activityId);
   if (!activity) throw Errors.notFound('Actividad no encontrada.');
@@ -109,6 +118,7 @@ export async function createPost(activityId, body, requestingUser) {
   });
 }
 
+// Borra una novedad.
 export async function deletePost(activityId, postId, requestingUser) {
   const post = await actRepo.findPost(postId);
   if (!post || post.activity_id !== activityId) throw Errors.notFound('Publicación no encontrada.');
@@ -118,6 +128,7 @@ export async function deletePost(activityId, postId, requestingUser) {
   await actRepo.deletePost(postId);
 }
 
+// Trae las reseñas.
 export async function listReviews(activityId) {
   const activity = await actRepo.findById(activityId);
   if (!activity) throw Errors.notFound('Actividad no encontrada.');

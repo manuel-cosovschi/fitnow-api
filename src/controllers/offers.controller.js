@@ -1,6 +1,7 @@
 // src/controllers/offers.controller.js
 import * as offerService from '../services/offer.service.js';
 
+// Crea una oferta/promo.
 export async function create(req, res, next) {
   try {
     if (!req.user.provider_id) {
@@ -11,12 +12,14 @@ export async function create(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// Lista las ofertas aprobadas.
 export async function listApproved(req, res, next) {
   try {
     res.json(await offerService.listApproved(req.query));
   } catch (err) { next(err); }
 }
 
+// Lista tus ofertas (proveedor).
 export async function listMine(req, res, next) {
   try {
     if (!req.user.provider_id) {

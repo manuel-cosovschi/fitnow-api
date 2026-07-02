@@ -1,6 +1,7 @@
 // src/controllers/auth.controller.js
 import * as authService from '../services/auth.service.js';
 
+// Endpoint de registro de atleta.
 export async function register(req, res, next) {
   try {
     const result = await authService.register(req.body);
@@ -8,6 +9,7 @@ export async function register(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// Endpoint de login.
 export async function login(req, res, next) {
   try {
     const result = await authService.login(req.body);
@@ -15,6 +17,7 @@ export async function login(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// Devuelve tu perfil.
 export async function me(req, res, next) {
   try {
     const user = await authService.getMe(req.user.id);
@@ -22,6 +25,7 @@ export async function me(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// Actualiza tu perfil.
 export async function updateMe(req, res, next) {
   try {
     const user = await authService.updateMe(req.user.id, req.body);
@@ -29,6 +33,7 @@ export async function updateMe(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// Cambia tu contraseña.
 export async function changePassword(req, res, next) {
   try {
     await authService.changePassword(req.user.id, req.body);
@@ -36,6 +41,7 @@ export async function changePassword(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// Pide recuperar la contraseña.
 export async function forgotPassword(req, res, next) {
   try {
     await authService.forgotPassword(req.body.email);
@@ -44,6 +50,7 @@ export async function forgotPassword(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// Resetea la contraseña con el enlace.
 export async function resetPassword(req, res, next) {
   try {
     await authService.resetPassword(req.body.token, req.body.new_password);
@@ -51,6 +58,7 @@ export async function resetPassword(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// Registro de un proveedor.
 export async function registerProvider(req, res, next) {
   try {
     const result = await authService.registerProvider(req.body);
@@ -58,6 +66,7 @@ export async function registerProvider(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// Renueva el token de acceso.
 export async function refresh(req, res, next) {
   try {
     const result = await authService.refreshToken(req.body?.refresh_token);
@@ -65,24 +74,28 @@ export async function refresh(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// Verifica el email.
 export async function verifyEmail(req, res, next) {
   try {
     res.json(await authService.verifyEmail(req.body));
   } catch (err) { next(err); }
 }
 
+// Login por magic link.
 export async function magicLink(req, res, next) {
   try {
     res.json(await authService.magicLink(req.body));
   } catch (err) { next(err); }
 }
 
+// Verifica el código de 2FA.
 export async function verify2fa(req, res, next) {
   try {
     res.json(await authService.verify2fa(req.body));
   } catch (err) { next(err); }
 }
 
+// Login con Apple.
 export async function appleSignIn(req, res, next) {
   try {
     res.json(await authService.appleSignIn(req.body));

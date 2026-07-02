@@ -31,10 +31,12 @@ const DEFAULTS = {
   maxTokens:   1024,
 };
 
+// Dice si hay clave de OpenAI configurada (si no, todo corre en modo demo).
 export function isAiEnabled() {
   return Boolean(process.env.OPENAI_API_KEY);
 }
 
+// Junta la configuración de OpenAI desde las variables de entorno.
 function config() {
   return {
     apiKey:      process.env.OPENAI_API_KEY ?? null,
@@ -47,6 +49,7 @@ function config() {
   };
 }
 
+// Llama a OpenAI y reintenta si falla por un error temporal.
 async function fetchWithRetry(url, init, { timeoutMs, maxRetries }) {
   let lastErr = null;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -82,6 +85,7 @@ function sleep(ms) {
  * @param {{ messages: Array<{role: string, content: string}>, jsonMode?: boolean, model?: string, temperature?: number, maxTokens?: number }} opts
  * @returns {Promise<{ok: true, data: any, mode: 'real', usage: {prompt_tokens, completion_tokens, total_tokens}, model: string} | {ok: false, mode: 'stub', reason: string}>}
  */
+// Le pide a OpenAI una respuesta en formato JSON (la que después se valida).
 export async function chatJSON(opts) {
   const cfg = config();
   if (!cfg.apiKey) return { ok: false, mode: 'stub', reason: 'no_api_key' };
@@ -135,6 +139,7 @@ export async function chatJSON(opts) {
  * SSE chunks directly to the client. Returns null when running in stub mode
  * (no API key) so callers can serve a stub stream instead.
  */
+// Le pide a OpenAI una respuesta en streaming (palabra por palabra, para el chat).
 export async function chatStream(opts) {
   const cfg = config();
   if (!cfg.apiKey) return null;
@@ -156,6 +161,7 @@ export async function chatStream(opts) {
   });
 }
 
+// Devuelve qué modelo de IA se está usando.
 export function getModel() {
   return config().model;
 }

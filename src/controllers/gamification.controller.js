@@ -3,6 +3,7 @@ import { queryOne, query } from '../db.js';
 import { parsePagination, paginatedResponse } from '../utils/paginate.js';
 import { calcLevel } from '../utils/xp.js';
 
+// Devuelve tu XP, nivel y progreso.
 export async function getMe(req, res, next) {
   try {
     const uid = req.user.id;
@@ -54,6 +55,7 @@ export async function getMe(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// Historial de puntos que fuiste ganando.
 export async function getHistory(req, res, next) {
   try {
     const { page, perPage, offset } = parsePagination(req.query);
@@ -69,6 +71,7 @@ export async function getHistory(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// Lista las medallas (ganadas y por ganar).
 export async function listBadges(req, res, next) {
   try {
     const uid  = req.user.id;
@@ -79,6 +82,7 @@ export async function listBadges(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// El ranking de usuarios.
 export async function getRanking(req, res, next) {
   try {
     const { page, perPage, offset } = parsePagination(req.query);

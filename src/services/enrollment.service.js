@@ -5,6 +5,7 @@ import { transaction }  from '../db.js';
 import { parsePagination, paginatedResponse } from '../utils/paginate.js';
 import { Errors } from '../utils/errors.js';
 
+// Te inscribe a una actividad. Chequea que exista y esté activa, que no estés ya anotado y que haya lugar. Todo dentro de una transacción para que dos pedidos al mismo tiempo no te anoten dos veces ni ocupen el mismo cupo.
 export async function enroll(userId, { activity_id, session_id, plan_name, plan_price, payment_type, payment_method }) {
   if (!activity_id) throw Errors.badRequest('activity_id requerido.');
 
@@ -72,6 +73,7 @@ export async function listMine(userId, queryParams) {
   return paginatedResponse(items, { page, perPage, total });
 }
 
+// Lista los inscriptos que tiene un proveedor (para el panel del gimnasio o entrenador).
 export async function listByProvider(providerId, queryParams) {
   const { page, perPage, offset } = parsePagination(queryParams);
   const [items, total] = await Promise.all([
@@ -81,6 +83,7 @@ export async function listByProvider(providerId, queryParams) {
   return paginatedResponse(items, { page, perPage, total });
 }
 
+// Marca que la persona llegó a la actividad: es el check-in del QR.
 export async function checkin(providerId, enrollmentId) {
   const enrollment = await enrollRepo.findByIdWithDetails(enrollmentId);
   if (!enrollment) throw Errors.notFound('Inscripción no encontrada.');
@@ -96,6 +99,7 @@ export async function checkin(providerId, enrollmentId) {
   };
 }
 
+// Cancela una inscripción tuya.
 export async function cancel(userId, enrollmentId) {
   const enrollment = await enrollRepo.findById(enrollmentId);
   if (!enrollment) throw Errors.notFound('Inscripción no encontrada.');

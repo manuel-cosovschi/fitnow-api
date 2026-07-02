@@ -6,6 +6,9 @@ import * as runService from '../services/run.service.js';
 import { analyzeRun } from '../services/runAnalysis.service.js';
 import { screenCoachMessage } from '../utils/aiGuardrails.js';
 
+// Arma las "instrucciones" que le damos al modelo antes de tu mensaje: le dice
+// que es el coach de FitNow y le suma datos tuyos (racha, km, nivel) para que
+// responda personalizado.
 function buildSystemPrompt(context) {
   const parts = ['Eres FitNow Coach, un entrenador deportivo virtual experto en running y gimnasio. Respondés siempre en español, de forma motivadora y concisa.'];
   if (context) {
@@ -17,6 +20,8 @@ function buildSystemPrompt(context) {
   return parts.join(' ');
 }
 
+// Prepara la respuesta para ir mandando el texto "de a chorritos" (streaming),
+// como cuando ChatGPT escribe palabra por palabra.
 function writeSseHeaders(res) {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -24,6 +29,8 @@ function writeSseHeaders(res) {
   res.flushHeaders();
 }
 
+// Respuesta "de demo" cuando no hay clave de OpenAI configurada: manda un
+// mensaje fijo para que la app no quede colgada.
 function emitStubStream(res) {
   const stub = 'Hola! Soy tu coach FitNow. Por ahora estoy en modo demo, pero pronto estaré activo para ayudarte con tu entrenamiento. ¡Seguí adelante!';
   for (const token of stub.split(' ')) {
@@ -33,6 +40,10 @@ function emitStubStream(res) {
   return stub;
 }
 
+// El chat del coach. Guarda lo que escribiste, lo pasa por el filtro de
+// seguridad, y si está OK se lo manda a OpenAI y te va devolviendo la respuesta
+// en vivo. Si el filtro lo rechaza, contesta con un mensaje seguro y no llama al
+// modelo.
 export async function coach(req, res, next) {
   try {
     // req.body has been validated upstream by validateBody(coachRequestSchema).
@@ -120,6 +131,7 @@ export async function coach(req, res, next) {
 
 // ── Coach history ─────────────────────────────────────────────────────────────
 
+// Devuelve el historial de la conversación con el coach (mensajes anteriores).
 export async function coachHistory(req, res, next) {
   try {
     const { limit, before } = req.query;
@@ -130,6 +142,8 @@ export async function coachHistory(req, res, next) {
 
 // ── Form check ───────────────────────────────────────────────────────────────
 
+// Guarda el resultado del análisis de técnica (form check) que hace la app con
+// la cámara. El análisis corre en el iPhone; acá solo se guarda el puntaje.
 export async function formCheckCreate(req, res, next) {
   try {
     const saved = await aiRepo.saveFormCheck({ userId: req.user.id, ...req.body });
@@ -137,6 +151,7 @@ export async function formCheckCreate(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// Lista tus análisis de técnica anteriores.
 export async function formCheckList(req, res, next) {
   try {
     const { limit, exercise } = req.query;
@@ -147,6 +162,8 @@ export async function formCheckList(req, res, next) {
 
 // ── Post-run analysis ──────────────────────────────────────────────────────────
 
+// Análisis de la corrida con IA: busca tu sesión real, se la manda al servicio
+// que arma el análisis (con tus números, no inventados) y te lo devuelve.
 export async function runAnalysis(req, res, next) {
   try {
     // getSession enforces ownership and 404s on a missing session, so the

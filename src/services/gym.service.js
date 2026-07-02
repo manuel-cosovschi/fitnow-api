@@ -32,6 +32,7 @@ function stubReroute({ remaining_time_min }) {
   };
 }
 
+// Trae tus sesiones de gym.
 export async function listMine(userId, { limit, offset, page, perPage }) {
   const [items, total] = await Promise.all([
     query(`SELECT * FROM gym_sessions WHERE user_id = ? ORDER BY started_at DESC LIMIT ? OFFSET ?`, [userId, limit, offset]),
@@ -40,6 +41,7 @@ export async function listMine(userId, { limit, offset, page, perPage }) {
   return paginatedResponse(items, { page, perPage, total: total?.total ?? 0 });
 }
 
+// Crea la sesión (si hay IA, arma la rutina).
 export async function create(userId, { activity_id, goal, time_available_min, equipment_available, muscle_groups }) {
   const aiInput = { goal, time_available_min, equipment_available, muscle_groups };
 
@@ -72,6 +74,7 @@ export async function create(userId, { activity_id, goal, time_available_min, eq
   return { ...session, ai_mode: aiMode };
 }
 
+// Trae una sesión.
 export async function getById(userId, id) {
   const session = await queryOne(`SELECT * FROM gym_sessions WHERE id = ? AND user_id = ?`, [id, userId]);
   if (!session) throw Errors.notFound('Sesión de gimnasio no encontrada.');
@@ -83,6 +86,7 @@ export async function getById(userId, id) {
   return session;
 }
 
+// Guarda una serie.
 export async function addSet(userId, sessionId, fields) {
   const session = await queryOne(`SELECT id FROM gym_sessions WHERE id = ? AND user_id = ?`, [sessionId, userId]);
   if (!session) throw Errors.notFound('Sesión no encontrada.');
@@ -98,6 +102,7 @@ export async function addSet(userId, sessionId, fields) {
   return queryOne(`SELECT * FROM gym_sets WHERE id = ?`, [result.insertId]);
 }
 
+// Cierra la sesión.
 export async function finish(userId, sessionId, { total_sets, total_reps, total_volume_kg, duration_s }) {
   const session = await queryOne(`SELECT * FROM gym_sessions WHERE id = ? AND user_id = ?`, [sessionId, userId]);
   if (!session) throw Errors.notFound('Sesión no encontrada.');
@@ -111,6 +116,7 @@ export async function finish(userId, sessionId, { total_sets, total_reps, total_
   return getById(userId, sessionId);
 }
 
+// Le pide a la IA una rutina ajustada al vuelo.
 export async function reroute(userId, sessionId, { completed_exercises, remaining_time_min }) {
   const session = await queryOne(`SELECT * FROM gym_sessions WHERE id = ? AND user_id = ?`, [sessionId, userId]);
   if (!session) throw Errors.notFound('Sesión no encontrada.');

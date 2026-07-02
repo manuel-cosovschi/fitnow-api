@@ -7,24 +7,28 @@ import { query, queryOne } from '../db.js';
 import { parsePagination, paginatedResponse } from '../utils/paginate.js';
 import { Errors } from '../utils/errors.js';
 
+// Devuelve los pesos con los que se recomiendan rutas.
 export async function getWeights(req, res, next) {
   try {
     res.json(await aiService.getWeights());
   } catch (err) { next(err); }
 }
 
+// Lista las versiones de esos pesos.
 export async function listWeights(req, res, next) {
   try {
     res.json(await aiService.listWeights());
   } catch (err) { next(err); }
 }
 
+// Crea o actualiza los pesos de recomendación.
 export async function upsertWeights(req, res, next) {
   try {
     res.json(await aiService.upsertWeights(req.body));
   } catch (err) { next(err); }
 }
 
+// Novedades globales.
 export async function getNews(req, res, next) {
   try {
     res.json(await aiService.getNews());
@@ -33,6 +37,7 @@ export async function getNews(req, res, next) {
 
 // ─── User management ──────────────────────────────────────────────────────────
 
+// Lista los usuarios (admin).
 export async function listUsers(req, res, next) {
   try {
     const { page, perPage, offset } = parsePagination(req.query);
@@ -45,6 +50,7 @@ export async function listUsers(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// Le da rol de proveedor a un usuario.
 export async function assignProviderRole(req, res, next) {
   try {
     const userId     = Number(req.params.id);
@@ -65,6 +71,7 @@ export async function assignProviderRole(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// Edita un usuario (por ejemplo banearlo).
 export async function patchUser(req, res, next) {
   try {
     const userId = Number(req.params.id);
@@ -85,6 +92,7 @@ export async function patchUser(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// Edita un proveedor.
 export async function patchProvider(req, res, next) {
   try {
     const id = Number(req.params.id);
@@ -101,6 +109,7 @@ export async function patchProvider(req, res, next) {
 
 // ─── Stats ────────────────────────────────────────────────────────────────────
 
+// Estadísticas generales para el panel de admin.
 export async function getStats(req, res, next) {
   try {
     const [users, providers, activities, totalEnrollments, pendingOffers, revenue] = await Promise.all([
@@ -124,6 +133,7 @@ export async function getStats(req, res, next) {
 
 // ─── Providers ────────────────────────────────────────────────────────────────
 
+// Lista proveedores (admin).
 export async function listProviders(req, res, next) {
   try {
     const { page, perPage, offset } = parsePagination(req.query);
@@ -138,18 +148,21 @@ export async function listProviders(req, res, next) {
 
 // ─── Offers ───────────────────────────────────────────────────────────────────
 
+// Lista ofertas para aprobar.
 export async function listAdminOffers(req, res, next) {
   try {
     res.json(await offerService.listAdmin(req.query));
   } catch (err) { next(err); }
 }
 
+// Aprueba una oferta.
 export async function approveOffer(req, res, next) {
   try {
     res.json(await offerService.approve(Number(req.params.id)));
   } catch (err) { next(err); }
 }
 
+// Rechaza una oferta.
 export async function rejectOffer(req, res, next) {
   try {
     res.json(await offerService.reject(Number(req.params.id), req.body.reason ?? null));
@@ -158,6 +171,7 @@ export async function rejectOffer(req, res, next) {
 
 // ── Activity approval ─────────────────────────────────────────────────────────
 
+// Lista actividades pendientes de aprobar.
 export async function listDraftActivities(req, res, next) {
   try {
     const rows = await query(
@@ -172,6 +186,7 @@ export async function listDraftActivities(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// Aprueba una actividad.
 export async function approveActivity(req, res, next) {
   try {
     const rows = await query(
@@ -183,6 +198,7 @@ export async function approveActivity(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// Rechaza una actividad.
 export async function rejectActivity(req, res, next) {
   try {
     const rows = await query(

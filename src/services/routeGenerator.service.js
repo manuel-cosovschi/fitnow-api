@@ -22,6 +22,7 @@ const tripCache = new LRUCache({
  * Build a stable cache key from the request shape. We round lat/lng to ~110m
  * buckets so nearby starts share cache entries.
  */
+// Arma una 'llave' para guardar rutas ya calculadas y no pedirlas de nuevo.
 function cacheKey(lat, lng, distance_m, variant) {
   const round = (n) => Math.round(n * 1000) / 1000; // ~110m precision
   return `${round(lat)}|${round(lng)}|${distance_m}|${variant}`;
@@ -30,6 +31,7 @@ function cacheKey(lat, lng, distance_m, variant) {
 /**
  * Offset a coordinate by a bearing (degrees) and distance (meters).
  */
+// Calcula un punto a X metros y en cierta dirección desde el origen (trigonometría sobre el mapa).
 function offsetCoord(lat, lng, bearing, distance) {
   const R = 6371000;
   const b = (bearing * Math.PI) / 180;
@@ -54,6 +56,7 @@ function offsetCoord(lat, lng, bearing, distance) {
 /**
  * Request a round-trip route from OSRM through the given waypoints.
  */
+// Le pide a OSRM el recorrido real por las calles pasando por unos puntos.
 async function fetchOsrmTrip(waypoints) {
   const coords = waypoints.map(p => `${p.lng},${p.lat}`).join(';');
   const url =
@@ -70,6 +73,7 @@ async function fetchOsrmTrip(waypoints) {
 /**
  * Geometric fallback: approximate circular loop starting at a given bearing.
  */
+// Plan B si OSRM falla: dibuja un círculo con la circunferencia justa para dar la distancia pedida.
 function circularFallback(lat, lng, distance_m, startBearing = 0) {
   const R = 6371000;
   const radius = distance_m / (2 * Math.PI);
@@ -127,6 +131,7 @@ const MAX_REFINE_ITERS   = 3;
  * the closest attempt. Falls back to a geometric loop (exact circumference) if
  * OSRM is unavailable.
  */
+// Arma UNA ruta y la va corrigiendo: mide lo que da OSRM y reajusta hasta acercarse a la distancia que pediste.
 async function buildRoute(tmpl, origin_lat, origin_lng, distance_m) {
   const primaryBearing = tmpl.bearings[0];
   let legFraction = tmpl.legFraction;
@@ -173,6 +178,7 @@ async function buildRoute(tmpl, origin_lat, origin_lng, distance_m) {
  * Generate 3 route options for the given origin and distance.
  * Cached per (lat-bucket, lng-bucket, distance, bearing) — see tripCache above.
  */
+// Arma las 3 opciones de ruta (directa, circular, aventura) que ves en el planner.
 export async function generateRoutes({ origin_lat, origin_lng, distance_m }) {
   const items = await Promise.all(
     TEMPLATES.map(async (tmpl, idx) => {

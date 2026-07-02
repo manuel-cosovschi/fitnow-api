@@ -3,6 +3,7 @@ import * as provRepo from '../repositories/provider.repository.js';
 import { parsePagination, paginatedResponse } from '../utils/paginate.js';
 import { Errors } from '../utils/errors.js';
 
+// Lógica para listar proveedores.
 export async function list(queryParams) {
   const { page, perPage, offset } = parsePagination(queryParams);
   const filters = {
@@ -20,6 +21,7 @@ export async function list(queryParams) {
   return paginatedResponse(items, { page, perPage, total });
 }
 
+// Trae un proveedor por id.
 export async function getById(id) {
   const provider = await provRepo.findById(id);
   if (!provider) throw Errors.notFound('Proveedor no encontrado.');
@@ -32,6 +34,7 @@ export async function getById(id) {
   return { ...provider, hours, services };
 }
 
+// Crea el proveedor.
 export async function create(fields) {
   if (!fields.name?.trim()) throw Errors.badRequest('El nombre es requerido.');
 
@@ -41,6 +44,7 @@ export async function create(fields) {
   });
 }
 
+// Actualiza el proveedor.
 export async function update(id, fields, requestingUser) {
   const provider = await provRepo.findById(id);
   if (!provider) throw Errors.notFound('Proveedor no encontrado.');
@@ -53,18 +57,21 @@ export async function update(id, fields, requestingUser) {
   return provRepo.update(id, fields);
 }
 
+// Lo activa.
 export async function activate(id) {
   const provider = await provRepo.findById(id);
   if (!provider) throw Errors.notFound('Proveedor no encontrado.');
   return provRepo.update(id, { status: 'active' });
 }
 
+// Lo suspende.
 export async function suspend(id) {
   const provider = await provRepo.findById(id);
   if (!provider) throw Errors.notFound('Proveedor no encontrado.');
   return provRepo.update(id, { status: 'suspended' });
 }
 
+// Guarda los horarios.
 export async function setHours(providerId, hours, requestingUser) {
   const provider = await provRepo.findById(providerId);
   if (!provider) throw Errors.notFound('Proveedor no encontrado.');
@@ -79,6 +86,7 @@ export async function setHours(providerId, hours, requestingUser) {
   return provRepo.findHours(providerId);
 }
 
+// Agrega un servicio.
 export async function addService(providerId, { sport_id, description }, requestingUser) {
   const provider = await provRepo.findById(providerId);
   if (!provider) throw Errors.notFound('Proveedor no encontrado.');
@@ -92,10 +100,12 @@ export async function addService(providerId, { sport_id, description }, requesti
   return provRepo.addService(providerId, { sport_id: Number(sport_id), description: description ?? null });
 }
 
+// Lista los servicios.
 export async function getServices(providerId) {
   return provRepo.findServices(providerId);
 }
 
+// Saca un servicio.
 export async function removeService(providerId, serviceId, requestingUser) {
   const provider = await provRepo.findById(providerId);
   if (!provider) throw Errors.notFound('Proveedor no encontrado.');

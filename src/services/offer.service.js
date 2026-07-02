@@ -3,6 +3,7 @@ import * as offerRepo from '../repositories/offer.repository.js';
 import { parsePagination, paginatedResponse } from '../utils/paginate.js';
 import { Errors } from '../utils/errors.js';
 
+// Guarda la oferta.
 export async function create(providerId, { title, description, discount_percent, discount_label, valid_from, valid_until, activity_kind, icon_name }) {
   if (!title?.trim()) throw Errors.badRequest('El título es requerido.');
   if (discount_percent == null && !discount_label?.trim())
@@ -18,6 +19,7 @@ export async function create(providerId, { title, description, discount_percent,
   });
 }
 
+// Trae las ofertas aprobadas.
 export async function listApproved(queryParams) {
   const { page, perPage, offset } = parsePagination(queryParams);
   const [items, total] = await Promise.all([
@@ -27,6 +29,7 @@ export async function listApproved(queryParams) {
   return paginatedResponse(items, { page, perPage, total });
 }
 
+// Trae tus ofertas.
 export async function listMine(providerId, queryParams) {
   const { page, perPage, offset } = parsePagination(queryParams);
   const [items, total] = await Promise.all([
@@ -36,6 +39,7 @@ export async function listMine(providerId, queryParams) {
   return paginatedResponse(items, { page, perPage, total });
 }
 
+// Trae las ofertas para el admin.
 export async function listAdmin(queryParams) {
   const { page, perPage, offset } = parsePagination(queryParams);
   const { status } = queryParams;
@@ -46,12 +50,14 @@ export async function listAdmin(queryParams) {
   return paginatedResponse(items, { page, perPage, total });
 }
 
+// Aprueba la oferta.
 export async function approve(id) {
   const offer = await offerRepo.findById(id);
   if (!offer) throw Errors.notFound('Oferta no encontrada.');
   return offerRepo.updateStatus(id, 'approved');
 }
 
+// Rechaza la oferta.
 export async function reject(id, reason = null) {
   const offer = await offerRepo.findById(id);
   if (!offer) throw Errors.notFound('Oferta no encontrada.');

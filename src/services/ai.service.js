@@ -2,16 +2,19 @@
 import * as aiRepo from '../repositories/ai.repository.js';
 import { Errors } from '../utils/errors.js';
 
+// Devuelve los pesos activos de recomendación de rutas.
 export async function getWeights() {
   const w = await aiRepo.getActiveWeights();
   if (!w) throw Errors.notFound('No hay pesos activos configurados.');
   return w;
 }
 
+// Lista las versiones de pesos.
 export async function listWeights() {
   return aiRepo.listWeights();
 }
 
+// Crea o actualiza los pesos.
 export async function upsertWeights({ version, label, weights }) {
   if (!version?.trim()) throw Errors.badRequest('version es requerido.');
 
@@ -30,6 +33,7 @@ export async function upsertWeights({ version, label, weights }) {
   return aiRepo.upsertWeights({ version: version.trim(), label, weights });
 }
 
+// Devuelve las novedades activas.
 export async function getNews() {
   return aiRepo.findNewsActive();
 }

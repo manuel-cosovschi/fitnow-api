@@ -2,6 +2,7 @@
 import { query, queryOne } from '../db.js';
 import { Errors } from '../utils/errors.js';
 
+// Lista tus mensajes/notificaciones.
 export async function listMessages(req, res, next) {
   try {
     const items = await query(
@@ -13,6 +14,7 @@ export async function listMessages(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// Marca un mensaje como leído.
 export async function markRead(req, res, next) {
   try {
     const { id } = req.params;
@@ -26,6 +28,7 @@ export async function markRead(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// Marca todos como leídos.
 export async function markAllRead(req, res, next) {
   try {
     await query(`UPDATE in_app_messages SET read = TRUE WHERE user_id = ?`, [req.user.id]);
@@ -33,6 +36,7 @@ export async function markAllRead(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// Guarda el token del celu para mandarte notificaciones push.
 export async function savePushToken(req, res, next) {
   try {
     const { token, platform = 'ios' } = req.body;
@@ -47,6 +51,7 @@ export async function savePushToken(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// Borra el token push.
 export async function deletePushToken(req, res, next) {
   try {
     await query(`DELETE FROM push_tokens WHERE user_id = ?`, [req.user.id]);

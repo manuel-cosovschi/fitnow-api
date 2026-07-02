@@ -7,6 +7,7 @@ import { Errors } from '../utils/errors.js';
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 
+// Lista rutas de running guardadas.
 export async function listRoutes(queryParams) {
   const { page, perPage, offset } = parsePagination(queryParams);
   const filters = {
@@ -27,12 +28,14 @@ export async function listRoutes(queryParams) {
   return paginatedResponse(items, { page, perPage, total });
 }
 
+// Devuelve una ruta puntual por su id.
 export async function getRoute(id) {
   const route = await runRepo.findRouteById(id);
   if (!route) throw Errors.notFound('Ruta no encontrada.');
   return route;
 }
 
+// Crea una ruta (solo admin o proveedor).
 export async function createRoute(fields, requestingUser) {
   if (!fields.title?.trim()) throw Errors.badRequest('El título es requerido.');
   if (!fields.distance_m)    throw Errors.badRequest('distance_m es requerido.');
@@ -42,6 +45,7 @@ export async function createRoute(fields, requestingUser) {
   return runRepo.createRoute(fields);
 }
 
+// Recomienda rutas con un puntaje que combina el feedback y la popularidad.
 export async function recommendRoutes(queryParams) {
   const { lat, lng, radius_m = 10000 } = queryParams;
   if (!lat || !lng) throw Errors.badRequest('lat y lng son requeridos.');
@@ -89,6 +93,7 @@ export async function recommendRoutes(queryParams) {
 
 // ── Sessions (telemetry) ───────────────────────────────────────────────────────
 
+// Arranca una sesión de corrida (cuando empezás a correr).
 export async function startSession(userId, { route_id, origin_lat, origin_lng, device }) {
   return runRepo.createSession({
     user_id:    userId,
@@ -99,6 +104,7 @@ export async function startSession(userId, { route_id, origin_lat, origin_lng, d
   });
 }
 
+// Devuelve una corrida tuya (chequea que sea tuya).
 export async function getSession(sessionId, userId) {
   const session = await runRepo.findSessionById(sessionId);
   if (!session) throw Errors.notFound('Sesión no encontrada.');
@@ -106,6 +112,7 @@ export async function getSession(sessionId, userId) {
   return session;
 }
 
+// Guarda los puntos de GPS que la app manda mientras corrés.
 export async function pushTelemetry(sessionId, userId, points) {
   const session = await runRepo.findSessionById(sessionId);
   if (!session) throw Errors.notFound('Sesión no encontrada.');
@@ -131,6 +138,7 @@ export async function pushTelemetry(sessionId, userId, points) {
   return { saved: points.length };
 }
 
+// Cierra la corrida y guarda el resumen: distancia, ritmo, pulso, etc.
 export async function finishSession(sessionId, userId, stats) {
   const session = await runRepo.findSessionById(sessionId);
   if (!session) throw Errors.notFound('Sesión no encontrada.');
@@ -153,6 +161,7 @@ export async function finishSession(sessionId, userId, stats) {
   return runRepo.finishSession(sessionId, summary);
 }
 
+// Marca la corrida como abandonada si saliste sin terminarla.
 export async function abandonSession(sessionId, userId) {
   const session = await runRepo.findSessionById(sessionId);
   if (!session) throw Errors.notFound('Sesión no encontrada.');
@@ -162,6 +171,7 @@ export async function abandonSession(sessionId, userId) {
   return runRepo.abandonSession(sessionId);
 }
 
+// Lista tus corridas.
 export async function listMySessions(userId, queryParams) {
   const { page, perPage, offset } = parsePagination(queryParams);
 
@@ -175,6 +185,7 @@ export async function listMySessions(userId, queryParams) {
 
 // ── Feedback ───────────────────────────────────────────────────────────────────
 
+// Guarda tu valoración de una ruta (estrellas, esfuerzo...).
 export async function submitFeedback(userId, routeId, fields) {
   const route = await runRepo.findRouteById(routeId);
   if (!route) throw Errors.notFound('Ruta no encontrada.');
@@ -196,6 +207,7 @@ export async function submitFeedback(userId, routeId, fields) {
   });
 }
 
+// Devuelve las valoraciones de una ruta.
 export async function getRouteFeedback(routeId, queryParams) {
   const { page, perPage, offset } = parsePagination(queryParams);
 

@@ -10,6 +10,7 @@ export async function listRoutes(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// Devuelve una ruta por id.
 export async function getRoute(req, res, next) {
   try {
     res.json(await runService.getRoute(Number(req.params.id)));
@@ -21,6 +22,7 @@ export async function getRoute(req, res, next) {
  * - If body contains origin_lat/origin_lng/distance_m → generate routes dynamically (any authenticated user)
  * - Otherwise → create/store a route in DB (admin or provider_admin only)
  */
+// Si le mandás origen y distancia, genera las 3 rutas; si no, crea una ruta (admin).
 export async function routesPost(req, res, next) {
   try {
     const { origin_lat, origin_lng, distance_m } = req.body;
@@ -43,6 +45,7 @@ export async function routesPost(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// Crea una ruta.
 export async function createRoute(req, res, next) {
   try {
     const route = await runService.createRoute(req.body, req.user);
@@ -50,6 +53,7 @@ export async function createRoute(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// Recomienda rutas.
 export async function recommend(req, res, next) {
   try {
     res.json(await runService.recommendRoutes(req.query));
@@ -64,12 +68,14 @@ export async function startSession(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// Devuelve una corrida.
 export async function getSession(req, res, next) {
   try {
     res.json(await runService.getSession(Number(req.params.id), req.user.id));
   } catch (err) { next(err); }
 }
 
+// Recibe los puntos de GPS de la corrida.
 export async function pushTelemetry(req, res, next) {
   try {
     const { points } = req.body;
@@ -77,18 +83,21 @@ export async function pushTelemetry(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// Finaliza la corrida.
 export async function finishSession(req, res, next) {
   try {
     res.json(await runService.finishSession(Number(req.params.id), req.user.id, req.body));
   } catch (err) { next(err); }
 }
 
+// Abandona la corrida.
 export async function abandonSession(req, res, next) {
   try {
     res.json(await runService.abandonSession(Number(req.params.id), req.user.id));
   } catch (err) { next(err); }
 }
 
+// Lista tus corridas.
 export async function listMySessions(req, res, next) {
   try {
     res.json(await runService.listMySessions(req.user.id, req.query));
@@ -103,6 +112,7 @@ export async function submitFeedback(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// Devuelve las valoraciones de una ruta.
 export async function getRouteFeedback(req, res, next) {
   try {
     res.json(await runService.getRouteFeedback(Number(req.params.id), req.query));

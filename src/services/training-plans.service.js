@@ -52,6 +52,7 @@ function deserializePlan(row) {
   return row;
 }
 
+// Trae tus planes.
 export async function list(userId) {
   const items = await query(
     `SELECT * FROM training_plans WHERE user_id = ? ORDER BY created_at DESC`,
@@ -60,6 +61,7 @@ export async function list(userId) {
   return { items: items.map(deserializePlan) };
 }
 
+// Trae el plan activo.
 export async function listActive(userId) {
   const items = await query(
     `SELECT * FROM training_plans WHERE user_id = ? AND status = 'active' ORDER BY created_at DESC`,
@@ -68,6 +70,7 @@ export async function listActive(userId) {
   return { items: items.map(deserializePlan) };
 }
 
+// Arma un plan nuevo.
 export async function generate(userId, { goal, duration_weeks, difficulty }) {
   if (!goal) throw Errors.badRequest('goal es requerido.');
 
@@ -86,12 +89,14 @@ export async function generate(userId, { goal, duration_weeks, difficulty }) {
   return deserializePlan(await queryOne(`SELECT * FROM training_plans WHERE id = ?`, [result.insertId]));
 }
 
+// Trae un plan.
 export async function getById(userId, id) {
   const plan = await queryOne(`SELECT * FROM training_plans WHERE id = ? AND user_id = ?`, [id, userId]);
   if (!plan) throw Errors.notFound('Plan no encontrado.');
   return deserializePlan(plan);
 }
 
+// Cancela el plan.
 export async function cancel(userId, id) {
   const plan = await queryOne(`SELECT id FROM training_plans WHERE id = ? AND user_id = ?`, [id, userId]);
   if (!plan) throw Errors.notFound('Plan no encontrado.');
