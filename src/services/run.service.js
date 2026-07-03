@@ -95,9 +95,16 @@ export async function recommendRoutes(queryParams) {
 
 // Arranca una sesión de corrida (cuando empezás a correr).
 export async function startSession(userId, { route_id, origin_lat, origin_lng, device }) {
+  // Las rutas generadas al vuelo tienen ids que no existen en la tabla run_routes:
+  // si el id no está en la base, guardamos la sesión sin ruta en vez de romper.
+  let rid = route_id ? Number(route_id) : null;
+  if (rid != null) {
+    const route = await runRepo.findRouteById(rid).catch(() => null);
+    if (!route) rid = null;
+  }
   return runRepo.createSession({
     user_id:    userId,
-    route_id:   route_id    ? Number(route_id)    : null,
+    route_id:   rid,
     origin_lat: origin_lat  ? Number(origin_lat)  : null,
     origin_lng: origin_lng  ? Number(origin_lng)  : null,
     device:     device      ?? null,
