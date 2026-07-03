@@ -5,7 +5,9 @@ export async function findMany({ where = [], params = [], orderBy = 'a.date_star
   const whereClause = where.length ? `WHERE ${where.join(' AND ')}` : '';
   const rows = await query(
     `SELECT a.id, a.title, a.description, a.modality, a.difficulty, a.kind, a.status,
-            a.location, a.lat, a.lng, a.price, a.capacity, a.seats_left,
+            a.location,
+            COALESCE(a.lat, p.lat) AS lat, COALESCE(a.lng, p.lng) AS lng,
+            a.price, a.capacity, a.seats_left,
             a.date_start, a.date_end, a.created_at,
             a.enable_running, a.enable_deposit, a.deposit_percent, a.has_capacity_limit, a.enable_files,
             a.image_urls, a.cancellation_policy, a.rating, a.review_count,

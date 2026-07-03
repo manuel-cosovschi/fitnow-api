@@ -174,3 +174,11 @@ SELECT 'Provider Admin Test', 'provadmin@fitnow.com',
   '$2a$10$D1rVOS/FJcROzwP5Q4AEVemUySGW0DVjzOkRXkrXsL3jdvidV8Nim', 'provider_admin',
   (SELECT id FROM providers WHERE name = 'FitCenter Buenos Aires' LIMIT 1)
 WHERE NOT EXISTS (SELECT 1 FROM users WHERE email = 'provadmin@fitnow.com');
+
+-- ─────────────────────────────────────────────
+-- Reubico los proveedores demo en Mar del Plata (donde se hace la demo),
+-- así el mapa de Explorar muestra los pines alrededor del usuario.
+UPDATE providers SET city='Mar del Plata', lat=-37.9720, lng=-57.5560 WHERE name='FitCenter Buenos Aires';
+UPDATE providers SET city='Mar del Plata', lat=-37.9905, lng=-57.5510 WHERE name='Lucas Pérez — Personal Trainer';
+UPDATE providers SET city='Mar del Plata', lat=-38.0055, lng=-57.5426 WHERE name='Club Atlético Palermo';
+UPDATE providers SET city='Mar del Plata', lat=-38.0180, lng=-57.5468 WHERE name='Studio Zen Yoga & Pilates';
