@@ -48,7 +48,7 @@ export async function create(userId, { activity_id, goal, time_available_min, eq
   const result = await chatJSON({
     jsonMode: true,
     messages: [
-      { role: 'system', content: 'You are a professional fitness trainer. Generate a gym workout plan as JSON with keys: exercises (array), estimated_duration_min, summary, warmup, cooldown. Each exercise: order, name, muscle_group, sets, reps, suggested_weight_kg, rest_seconds, notes.' },
+      { role: 'system', content: 'You are a professional fitness trainer. Generate a gym workout plan as JSON with keys: exercises (array), estimated_duration_min, summary, warmup, cooldown. Each exercise: order, name, muscle_group, sets, reps, suggested_weight_kg, rest_seconds, notes. All text values (names, summary, warmup, cooldown, notes) must be written in Spanish.' },
       { role: 'user',   content: `Goal: ${goal || 'general fitness'}. Time: ${time_available_min || 45} min. Equipment: ${equipment_available || 'full gym'}. Muscle groups: ${(muscle_groups || []).join(', ') || 'full body'}.` },
     ],
   });
@@ -124,7 +124,7 @@ export async function reroute(userId, sessionId, { completed_exercises, remainin
   const result = await chatJSON({
     jsonMode: true,
     messages: [
-      { role: 'system', content: 'You are a professional fitness trainer. Adjust a mid-session workout. Return JSON with: remaining_exercises (array), estimated_remaining_min, reasoning, adjustments_made.' },
+      { role: 'system', content: 'You are a professional fitness trainer. Adjust a mid-session workout. Return JSON with: remaining_exercises (array), estimated_remaining_min, reasoning, adjustments_made. All text values must be written in Spanish.' },
       { role: 'user',   content: `Completed: ${(completed_exercises || []).join(', ')}. Remaining time: ${remaining_time_min} min.` },
     ],
   });
