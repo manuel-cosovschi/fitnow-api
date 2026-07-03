@@ -182,3 +182,46 @@ UPDATE providers SET city='Mar del Plata', lat=-37.9720, lng=-57.5560 WHERE name
 UPDATE providers SET city='Mar del Plata', lat=-37.9905, lng=-57.5510 WHERE name='Lucas Pérez — Personal Trainer';
 UPDATE providers SET city='Mar del Plata', lat=-38.0055, lng=-57.5426 WHERE name='Club Atlético Palermo';
 UPDATE providers SET city='Mar del Plata', lat=-38.0180, lng=-57.5468 WHERE name='Studio Zen Yoga & Pilates';
+
+-- ─────────────────────────────────────────────
+-- Mantengo las actividades demo siempre vigentes: si alguna venció, le corro
+-- las fechas para adelante (esto corre en cada deploy, así la demo nunca
+-- queda con actividades vencidas) y le repongo cupo.
+UPDATE activities SET
+  date_start = NOW() + INTERVAL '2 days',
+  date_end   = NOW() + INTERVAL '2 days' + INTERVAL '1 hour',
+  seats_left = GREATEST(COALESCE(seats_left, 0), 5)
+WHERE status = 'active' AND date_end < NOW() AND title IN (
+  'CrossFit Matutino','HIIT Express 45 min','Funcional para Principiantes',
+  'Sesión Personal de Running','Pádel Mixto — Dobles','Entrenamiento Outdoor Grupal',
+  'Natación Adultos — Nivel Intermedio','Ciclismo Grupal — Ruta del Río',
+  'Torneo Interno de Fútbol 5'
+);
+
+-- El plan de fuerza dura 4 semanas: lo corro completo si venció.
+UPDATE activities SET
+  date_start = NOW() + INTERVAL '3 days',
+  date_end   = NOW() + INTERVAL '31 days',
+  seats_left = GREATEST(COALESCE(seats_left, 0), 3)
+WHERE status = 'active' AND date_end < NOW() AND title = 'Plan de Fuerza — 4 semanas';
+
+-- Membresía SIN fechas (como un gym real): no vence nunca, la inscripción
+-- se renueva mes a mes.
+INSERT INTO activities (provider_id, sport_id, kind, status, title, description, modality, difficulty, location, price, date_start, date_end, capacity, seats_left)
+SELECT p.id, NULL, 'gym', 'active',
+  'Membresía Mensual FitCenter', 'Acceso libre al gimnasio todos los días. La inscripción se renueva mes a mes.',
+  'gimnasio', 'media', 'FitCenter — Av. Constitución 5500, Mar del Plata', 28000,
+  NULL, NULL, 100, 100
+FROM providers p
+WHERE p.name = 'FitCenter Buenos Aires'
+  AND NOT EXISTS (SELECT 1 FROM activities WHERE title = 'Membresía Mensual FitCenter');
+
+-- Clase con fecha próxima para poder inscribirse en la demo.
+INSERT INTO activities (provider_id, sport_id, kind, status, title, description, modality, difficulty, location, price, date_start, date_end, capacity, seats_left)
+SELECT p.id, s.id, 'club_sport', 'active',
+  'Yoga al Amanecer en la Playa', 'Clase de yoga frente al mar. Traé tu mat y llegá 10 minutos antes.',
+  'outdoor', 'baja', 'Playa Varese, Mar del Plata', 6000,
+  NOW() + INTERVAL '4 days', NOW() + INTERVAL '4 days' + INTERVAL '90 minutes', 25, 25
+FROM providers p, sports s
+WHERE p.name = 'Studio Zen Yoga & Pilates' AND s.name = 'Yoga'
+  AND NOT EXISTS (SELECT 1 FROM activities WHERE title = 'Yoga al Amanecer en la Playa');

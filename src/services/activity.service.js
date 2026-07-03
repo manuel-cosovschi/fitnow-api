@@ -13,6 +13,13 @@ export async function list(queryParams) {
 
   where.push(`a.status = ?`); params.push(status);
 
+  // Las actividades vencidas no aparecen en el buscador. Las que no tienen
+  // fecha (membresías tipo gym) se muestran siempre. El proveedor sí ve las
+  // suyas vencidas (cuando filtra por provider_id, para poder gestionarlas).
+  if (!provider_id) {
+    where.push(`(a.date_end IS NULL OR a.date_end >= NOW())`);
+  }
+
   if (q?.trim()) {
     where.push(`(a.title LIKE ? OR a.description LIKE ? OR a.location LIKE ?)`);
     const like = `%${q.trim()}%`;
