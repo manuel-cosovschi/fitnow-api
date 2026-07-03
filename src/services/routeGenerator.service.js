@@ -9,6 +9,7 @@
 //   OSRM_CACHE_MAX_ENTRIES default 500
 
 import { LRUCache } from '../utils/lruCache.js';
+import * as runRepo from '../repositories/run.repository.js';
 
 const OSRM_BASE       = () => process.env.OSRM_BASE || 'https://router.project-osrm.org';
 const OSRM_TIMEOUT_MS = () => parseInt(process.env.OSRM_TIMEOUT_MS, 10) || 6000;
@@ -175,6 +176,37 @@ async function buildRoute(tmpl, origin_lat, origin_lng, distance_m) {
 }
 
 /**
+ * Persist a generated route into run_routes so it gets a real DB id (needed for
+ * sessions and feedback). Returns the new id, or null if the insert fails —
+ * generation still works without it.
+ */
+// Guarda la ruta generada en la base para que se pueda calificar y asociar a corridas.
+async function persistGeneratedRoute(tmpl, payload, origin_lat, origin_lng, distance_m) {
+  try {
+    const coords = payload.geojson?.coordinates || [];
+    const lats = coords.map(c => c[1]);
+    const lngs = coords.map(c => c[0]);
+    const saved = await runRepo.createRoute({
+      title:        `${tmpl.label} ${(distance_m / 1000).toFixed(1)} km`,
+      description:  tmpl.rationale,
+      surface:      'road',
+      difficulty:   'media',
+      distance_m:   payload.distance_m,
+      polyline:     JSON.stringify(payload.geojson),
+      center_lat:   origin_lat,
+      center_lng:   origin_lng,
+      bbox_min_lat: lats.length ? Math.min(...lats) : origin_lat,
+      bbox_min_lng: lngs.length ? Math.min(...lngs) : origin_lng,
+      bbox_max_lat: lats.length ? Math.max(...lats) : origin_lat,
+      bbox_max_lng: lngs.length ? Math.max(...lngs) : origin_lng,
+    });
+    return saved?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Generate 3 route options for the given origin and distance.
  * Cached per (lat-bucket, lng-bucket, distance, bearing) — see tripCache above.
  */
@@ -189,15 +221,20 @@ export async function generateRoutes({ origin_lat, origin_lng, distance_m }) {
       let payload = tripCache.get(key);
       if (!payload) {
         payload = await buildRoute(tmpl, origin_lat, origin_lng, distance_m);
+        // Guardamos la ruta generada en run_routes para que tenga un id REAL:
+        // así la sesión puede referenciarla y el usuario puede calificarla
+        // (antes los ids eran inventados y calificar daba 404).
+        payload.dbId = await persistGeneratedRoute(tmpl, payload, origin_lat, origin_lng, distance_m);
         tripCache.set(key, payload);
       }
 
+      const { dbId, ...routeFields } = payload;
       return {
-        id: idx + 1,
+        id: dbId ?? idx + 1,
         preference: tmpl.preference,
         label:      tmpl.label,
         rationale:  tmpl.rationale,
-        ...payload,
+        ...routeFields,
       };
     }),
   );
