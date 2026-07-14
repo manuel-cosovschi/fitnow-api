@@ -1,0 +1,7 @@
+zone,origin,target_m,method,dist_m,err_pct,exposure_m,hazards_touched,turns_per_km,fallback,osrm_calls,latency_ms
+centro,Plaza San Martín,5000,B0,7381,47.62,300,1,1.35,0,1,643
+centro,Plaza San Martín,5000,B1,5062,1.24,0,0,1.19,0,5,680
+centro,Plaza San Martín,5000,M,5062,1.24,0,0,1.19,0,30,3118
+centro,Catedral,5000,B0,7140,42.8,150,1,0.7,0,1,134
+centro,Catedral,5000,B1,5009,0.18,0,0,0.8,0,4,543
+centro,Catedral,5000,M,4751,4.98,474,1,1.47,0,30,3125

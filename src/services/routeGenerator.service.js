@@ -78,7 +78,7 @@ async function fetchOsrmTrip(waypoints) {
  * Geometric fallback: approximate circular loop starting at a given bearing.
  */
 // Plan B si OSRM falla: dibuja un círculo con la circunferencia justa para dar la distancia pedida.
-function circularFallback(lat, lng, distance_m, startBearing = 0) {
+export function circularFallback(lat, lng, distance_m, startBearing = 0) {
   const R = 6371000;
   const radius = distance_m / (2 * Math.PI);
   const n = 36;
@@ -99,7 +99,7 @@ function circularFallback(lat, lng, distance_m, startBearing = 0) {
 }
 
 // Template for the 3 route styles
-const TEMPLATES = [
+export const TEMPLATES = [
   {
     preference: 'directa',
     label: 'Ruta directa',
@@ -137,7 +137,7 @@ const MAX_REFINE_ITERS   = 7;
  * loop whose length is EXACTLY the requested distance.
  */
 // Arma UNA ruta buscando por bisección el largo del tramo hasta que la distancia por calles coincida con la pedida; si no lo logra, garantiza la distancia exacta con un loop geométrico.
-async function buildRoute(tmpl, origin_lat, origin_lng, distance_m) {
+export async function buildRoute(tmpl, origin_lat, origin_lng, distance_m) {
   const primaryBearing = tmpl.bearings[0];
 
   const tryLeg = async (legFraction) => {
@@ -202,7 +202,7 @@ function candidateSpecs() {
 }
 
 // Pide a OSRM el circuito de una spec con un largo de tramo dado.
-async function fetchSpec(spec, origin_lat, origin_lng, legDist) {
+export async function fetchSpec(spec, origin_lat, origin_lng, legDist) {
   const waypoints = [{ lat: origin_lat, lng: origin_lng }];
   for (const bearing of spec.bearings) {
     waypoints.push(offsetCoord(origin_lat, origin_lng, bearing, legDist));
@@ -218,7 +218,7 @@ async function fetchSpec(spec, origin_lat, origin_lng, legDist) {
  * crece con el largo del tramo, así que el refinamiento converge.
  */
 // Genera todas las rutas candidatas gastando como mucho ~30 llamadas a OSRM.
-async function generatePortfolio(origin_lat, origin_lng, distance_m) {
+export async function generatePortfolio(origin_lat, origin_lng, distance_m) {
   let callsLeft = PORTFOLIO_BUDGET();
   const specs = candidateSpecs();
   const candidates = [];
