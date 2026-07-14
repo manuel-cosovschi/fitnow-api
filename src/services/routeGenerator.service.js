@@ -223,46 +223,54 @@ async function generatePortfolio(origin_lat, origin_lng, distance_m) {
   const specs = candidateSpecs();
   const candidates = [];
 
-  // Fase 1: un sondeo por spec.
-  for (const spec of specs) {
-    if (callsLeft <= 0) break;
-    callsLeft--;
-    try {
-      const legDist = distance_m * spec.legFraction;
-      const probe = await fetchSpec(spec, origin_lat, origin_lng, legDist);
-      candidates.push({ spec, legFraction: spec.legFraction, ...probe });
-    } catch { /* OSRM falló para esta spec: se descarta */ }
+  // Fase 1: un sondeo por spec, en tandas de 4 en paralelo (baja la latencia
+  // total sin castigar al servidor público de OSRM).
+  const PROBE_BATCH = 4;
+  for (let i = 0; i < specs.length && callsLeft > 0; i += PROBE_BATCH) {
+    const batch = specs.slice(i, i + Math.min(PROBE_BATCH, callsLeft));
+    callsLeft -= batch.length;
+    const results = await Promise.allSettled(
+      batch.map(spec => fetchSpec(spec, origin_lat, origin_lng, distance_m * spec.legFraction)),
+    );
+    results.forEach((r, j) => {
+      if (r.status === 'fulfilled') {
+        candidates.push({ spec: batch[j], legFraction: batch[j].legFraction, refines: 0, ...r.value });
+      }
+    });
   }
 
-  // Fase 2: refinar las que peor quedaron respecto de la distancia pedida,
-  // mientras quede presupuesto. Primero un ajuste proporcional y después
-  // bisección corta alrededor del mejor intervalo conocido.
-  const needsWork = () => candidates
-    .filter(c => Math.abs(c.distance_m - distance_m) / distance_m > DISTANCE_TOLERANCE)
-    .sort((a, b) => Math.abs(b.distance_m - distance_m) - Math.abs(a.distance_m - distance_m));
+  // Fase 2: refinamiento de a UNA llamada por vez, siempre sobre el candidato
+  // con peor error. Rinde más que un número fijo de intentos por candidato:
+  // el presupuesto va a donde más hace falta. Primer intento proporcional,
+  // después bisección sobre el intervalo conocido (la distancia crece con el
+  // largo del tramo, así que converge).
+  const err = c => Math.abs(c.distance_m - distance_m) / distance_m;
+  while (callsLeft > 0) {
+    const worst = candidates
+      .filter(c => err(c) > DISTANCE_TOLERANCE && c.refines < REFINE_ITERS_PER_CANDIDATE)
+      .sort((a, b) => err(b) - err(a))[0];
+    if (!worst) break;
 
-  for (const cand of needsWork()) {
-    if (callsLeft < REFINE_ITERS_PER_CANDIDATE) break;
-    let lo = cand.legFraction, hi = cand.legFraction;
-    if (cand.distance_m < distance_m) hi = Math.min(cand.legFraction * 2, 1.2);
-    else lo = Math.max(cand.legFraction * 0.4, 0.08);
+    if (worst.lo == null) {
+      worst.lo = worst.distance_m < distance_m ? worst.legFraction : Math.max(worst.legFraction * 0.4, 0.08);
+      worst.hi = worst.distance_m < distance_m ? Math.min(worst.legFraction * 2, 1.2) : worst.legFraction;
+    }
+    const frac = worst.refines === 0
+      ? Math.min(Math.max(worst.legFraction * (distance_m / worst.distance_m), worst.lo), worst.hi)
+      : (worst.lo + worst.hi) / 2;
 
-    for (let i = 0; i < REFINE_ITERS_PER_CANDIDATE && callsLeft > 0; i++) {
-      // primer paso: proporcional; siguientes: bisección
-      const frac = i === 0
-        ? Math.min(Math.max(cand.legFraction * (distance_m / cand.distance_m), lo), hi)
-        : (lo + hi) / 2;
-      callsLeft--;
-      try {
-        const attempt = await fetchSpec(cand.spec, origin_lat, origin_lng, distance_m * frac);
-        if (Math.abs(attempt.distance_m - distance_m) < Math.abs(cand.distance_m - distance_m)) {
-          cand.distance_m = attempt.distance_m;
-          cand.geojson    = attempt.geojson;
-          cand.legFraction = frac;
-        }
-        if (Math.abs(attempt.distance_m - distance_m) / distance_m <= DISTANCE_TOLERANCE) break;
-        if (attempt.distance_m < distance_m) lo = frac; else hi = frac;
-      } catch { break; }
+    callsLeft--;
+    worst.refines++;
+    try {
+      const attempt = await fetchSpec(worst.spec, origin_lat, origin_lng, distance_m * frac);
+      if (Math.abs(attempt.distance_m - distance_m) < Math.abs(worst.distance_m - distance_m)) {
+        worst.distance_m  = attempt.distance_m;
+        worst.geojson     = attempt.geojson;
+        worst.legFraction = frac;
+      }
+      if (attempt.distance_m < distance_m) worst.lo = frac; else worst.hi = frac;
+    } catch {
+      worst.refines = REFINE_ITERS_PER_CANDIDATE; // no insistir con esta spec
     }
   }
 
@@ -331,28 +339,32 @@ export async function generateRoutes({ origin_lat, origin_lng, distance_m }) {
   // 1) Cartera de candidatas por calles.
   const candidates = await generatePortfolio(origin_lat, origin_lng, distance_m);
 
-  // 2) Mínimo garantizado: completar con loops geométricos exactos si hace falta.
-  const fallbackBearings = [0, 120, 240];
-  let fbIdx = 0;
-  while (candidates.length < 3 && fbIdx < fallbackBearings.length) {
-    const b = fallbackBearings[fbIdx++];
-    candidates.push({
+  // 2) Hazards activos alrededor del origen (radio acorde a la distancia pedida).
+  const hazards = await hazardRepo
+    .findNear({ lat: origin_lat, lng: origin_lng, radius_m: Math.min(distance_m / 2 + 800, 8000) })
+    .catch(() => []);
+
+  // 4) Evaluación multicriterio y selección. La selección final mantiene la
+  //    garantía de distancia: solo entran candidatas dentro de la tolerancia;
+  //    si no llegan a 3, se completa con loops geométricos exactos (que
+  //    también pasan por el evaluador, así compiten en igualdad).
+  const weights   = await getPlannerWeights();
+  const inRange   = c => Math.abs(c.distance_m - distance_m) / distance_m <= DISTANCE_TOLERANCE;
+  let eligible    = candidates.filter(inRange);
+  const usedBearings = new Set();
+  for (const b of [0, 90, 180, 270]) {
+    if (eligible.length >= 3) break;
+    if (usedBearings.has(b)) continue;
+    usedBearings.add(b);
+    eligible.push({
       spec: { kind: 'circular', bearings: [b] },
       distance_m,
       geojson: circularFallback(origin_lat, origin_lng, distance_m, b),
       fallback: true,
     });
   }
-
-  // 3) Hazards activos alrededor del origen (radio acorde a la distancia pedida).
-  const hazards = await hazardRepo
-    .findNear({ lat: origin_lat, lng: origin_lng, radius_m: Math.min(distance_m / 2 + 800, 8000) })
-    .catch(() => []);
-
-  // 4) Evaluación multicriterio y selección.
-  const weights = await getPlannerWeights();
-  const ranked  = scorePortfolio(candidates, { hazards, weights, targetM: distance_m });
-  const top     = ranked.slice(0, 3);
+  const ranked = scorePortfolio(eligible, { hazards, weights, targetM: distance_m });
+  const top    = ranked.slice(0, 3);
 
   // 5) Salida compatible con la app + persistencia con id real.
   const PREFS  = ['directa', 'circular', 'aventura'];
