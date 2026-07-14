@@ -10,6 +10,9 @@
 
 import { LRUCache } from '../utils/lruCache.js';
 import * as runRepo from '../repositories/run.repository.js';
+import * as hazardRepo from '../repositories/hazard.repository.js';
+import * as aiRepo from '../repositories/ai.repository.js';
+import { scorePortfolio, DEFAULT_PLANNER_WEIGHTS } from './routeEvaluator.service.js';
 
 const OSRM_BASE       = () => process.env.OSRM_BASE || 'https://router.project-osrm.org';
 const OSRM_TIMEOUT_MS = () => parseInt(process.env.OSRM_TIMEOUT_MS, 10) || 6000;
@@ -175,6 +178,107 @@ async function buildRoute(tmpl, origin_lat, origin_lng, distance_m) {
   };
 }
 
+// ── Cartera de candidatas (el planificador multicriterio) ─────────────────────
+// En lugar de generar 3 rutas fijas, generamos una cartera más grande variando
+// el rumbo de salida y la forma del circuito, y después el evaluador
+// multicriterio elige las mejores. El presupuesto limita las llamadas a OSRM
+// por pedido para respetar el rate limit del servidor público.
+
+const PORTFOLIO_BUDGET = () => parseInt(process.env.OSRM_PORTFOLIO_BUDGET, 10) || 30;
+const REFINE_ITERS_PER_CANDIDATE = 3;
+
+// Arma las especificaciones de las candidatas: 8 ida-y-vuelta (una por rumbo,
+// cada 45°) y 4 triángulos (rotados de a 90°). 12 formas distintas de recorrer
+// la misma distancia desde el mismo punto.
+function candidateSpecs() {
+  const specs = [];
+  for (let b = 0; b < 360; b += 45) {
+    specs.push({ kind: 'ida-vuelta', bearings: [b], legFraction: 0.5 });
+  }
+  for (let b = 0; b < 360; b += 90) {
+    specs.push({ kind: 'triángulo', bearings: [b, b + 120, b + 240], legFraction: 0.38 });
+  }
+  return specs;
+}
+
+// Pide a OSRM el circuito de una spec con un largo de tramo dado.
+async function fetchSpec(spec, origin_lat, origin_lng, legDist) {
+  const waypoints = [{ lat: origin_lat, lng: origin_lng }];
+  for (const bearing of spec.bearings) {
+    waypoints.push(offsetCoord(origin_lat, origin_lng, bearing, legDist));
+  }
+  const trip = await fetchOsrmTrip(waypoints);
+  return { distance_m: Math.round(trip.distance), geojson: trip.geometry };
+}
+
+/**
+ * Genera la cartera con presupuesto: primero sondea cada spec con UNA llamada;
+ * después refina (ajuste por proporción + bisección corta) solo las candidatas
+ * que quedaron fuera de tolerancia, hasta agotar el presupuesto. La distancia
+ * crece con el largo del tramo, así que el refinamiento converge.
+ */
+// Genera todas las rutas candidatas gastando como mucho ~30 llamadas a OSRM.
+async function generatePortfolio(origin_lat, origin_lng, distance_m) {
+  let callsLeft = PORTFOLIO_BUDGET();
+  const specs = candidateSpecs();
+  const candidates = [];
+
+  // Fase 1: un sondeo por spec.
+  for (const spec of specs) {
+    if (callsLeft <= 0) break;
+    callsLeft--;
+    try {
+      const legDist = distance_m * spec.legFraction;
+      const probe = await fetchSpec(spec, origin_lat, origin_lng, legDist);
+      candidates.push({ spec, legFraction: spec.legFraction, ...probe });
+    } catch { /* OSRM falló para esta spec: se descarta */ }
+  }
+
+  // Fase 2: refinar las que peor quedaron respecto de la distancia pedida,
+  // mientras quede presupuesto. Primero un ajuste proporcional y después
+  // bisección corta alrededor del mejor intervalo conocido.
+  const needsWork = () => candidates
+    .filter(c => Math.abs(c.distance_m - distance_m) / distance_m > DISTANCE_TOLERANCE)
+    .sort((a, b) => Math.abs(b.distance_m - distance_m) - Math.abs(a.distance_m - distance_m));
+
+  for (const cand of needsWork()) {
+    if (callsLeft < REFINE_ITERS_PER_CANDIDATE) break;
+    let lo = cand.legFraction, hi = cand.legFraction;
+    if (cand.distance_m < distance_m) hi = Math.min(cand.legFraction * 2, 1.2);
+    else lo = Math.max(cand.legFraction * 0.4, 0.08);
+
+    for (let i = 0; i < REFINE_ITERS_PER_CANDIDATE && callsLeft > 0; i++) {
+      // primer paso: proporcional; siguientes: bisección
+      const frac = i === 0
+        ? Math.min(Math.max(cand.legFraction * (distance_m / cand.distance_m), lo), hi)
+        : (lo + hi) / 2;
+      callsLeft--;
+      try {
+        const attempt = await fetchSpec(cand.spec, origin_lat, origin_lng, distance_m * frac);
+        if (Math.abs(attempt.distance_m - distance_m) < Math.abs(cand.distance_m - distance_m)) {
+          cand.distance_m = attempt.distance_m;
+          cand.geojson    = attempt.geojson;
+          cand.legFraction = frac;
+        }
+        if (Math.abs(attempt.distance_m - distance_m) / distance_m <= DISTANCE_TOLERANCE) break;
+        if (attempt.distance_m < distance_m) lo = frac; else hi = frac;
+      } catch { break; }
+    }
+  }
+
+  return candidates;
+}
+
+// Lee los pesos del planificador desde ai_weights (si la fila los tiene);
+// si la base no responde o faltan columnas, usa los defaults del evaluador.
+async function getPlannerWeights() {
+  try {
+    const row = await aiRepo.getActiveWeights();
+    if (row && row.w_dist_fid != null) return row;
+  } catch { /* sin base en tests/dev: defaults */ }
+  return DEFAULT_PLANNER_WEIGHTS;
+}
+
 /**
  * Persist a generated route into run_routes so it gets a real DB id (needed for
  * sessions and feedback). Returns the new id, or null if the insert fails —
@@ -207,37 +311,82 @@ async function persistGeneratedRoute(tmpl, payload, origin_lat, origin_lng, dist
 }
 
 /**
- * Generate 3 route options for the given origin and distance.
- * Cached per (lat-bucket, lng-bucket, distance, bearing) — see tripCache above.
+ * Generate route options for the given origin and distance.
+ *
+ * Flujo del planificador multicriterio:
+ *   1. Cartera: hasta 12 candidatas por calles (rumbos × formas de circuito),
+ *      con presupuesto de llamadas a OSRM y refinamiento de distancia.
+ *   2. Garantía: si OSRM aportó menos de 3, se completa con loops geométricos
+ *      de distancia exacta (que también se evalúan).
+ *   3. Contexto: hazards activos cercanos al origen.
+ *   4. Evaluación multicriterio (routeEvaluator) y selección del top-3, cada
+ *      ruta con su puntaje, el desglose de criterios y la explicación.
  */
-// Arma las 3 opciones de ruta (directa, circular, aventura) que ves en el planner.
+// Genera la cartera de rutas, las evalúa con el puntaje propio y devuelve las 3 mejores.
 export async function generateRoutes({ origin_lat, origin_lng, distance_m }) {
-  const items = await Promise.all(
-    TEMPLATES.map(async (tmpl, idx) => {
-      // Key by the route variant (not its bearing) — "directa" and "circular"
-      // share bearing 0 and would otherwise collide into one identical route.
-      const key = cacheKey(origin_lat, origin_lng, distance_m, tmpl.preference);
+  const key = cacheKey(origin_lat, origin_lng, distance_m, 'portfolio-v1');
+  const cached = tripCache.get(key);
+  if (cached) return cached;
 
-      let payload = tripCache.get(key);
-      if (!payload) {
-        payload = await buildRoute(tmpl, origin_lat, origin_lng, distance_m);
-        // Guardamos la ruta generada en run_routes para que tenga un id REAL:
-        // así la sesión puede referenciarla y el usuario puede calificarla
-        // (antes los ids eran inventados y calificar daba 404).
-        payload.dbId = await persistGeneratedRoute(tmpl, payload, origin_lat, origin_lng, distance_m);
-        tripCache.set(key, payload);
-      }
+  // 1) Cartera de candidatas por calles.
+  const candidates = await generatePortfolio(origin_lat, origin_lng, distance_m);
 
-      const { dbId, ...routeFields } = payload;
-      return {
-        id: dbId ?? idx + 1,
-        preference: tmpl.preference,
-        label:      tmpl.label,
-        rationale:  tmpl.rationale,
-        ...routeFields,
-      };
-    }),
-  );
+  // 2) Mínimo garantizado: completar con loops geométricos exactos si hace falta.
+  const fallbackBearings = [0, 120, 240];
+  let fbIdx = 0;
+  while (candidates.length < 3 && fbIdx < fallbackBearings.length) {
+    const b = fallbackBearings[fbIdx++];
+    candidates.push({
+      spec: { kind: 'circular', bearings: [b] },
+      distance_m,
+      geojson: circularFallback(origin_lat, origin_lng, distance_m, b),
+      fallback: true,
+    });
+  }
 
-  return { items };
+  // 3) Hazards activos alrededor del origen (radio acorde a la distancia pedida).
+  const hazards = await hazardRepo
+    .findNear({ lat: origin_lat, lng: origin_lng, radius_m: Math.min(distance_m / 2 + 800, 8000) })
+    .catch(() => []);
+
+  // 4) Evaluación multicriterio y selección.
+  const weights = await getPlannerWeights();
+  const ranked  = scorePortfolio(candidates, { hazards, weights, targetM: distance_m });
+  const top     = ranked.slice(0, 3);
+
+  // 5) Salida compatible con la app + persistencia con id real.
+  const PREFS  = ['directa', 'circular', 'aventura'];
+  const LABELS = ['Ruta recomendada', 'Alternativa 1', 'Alternativa 2'];
+  const items  = [];
+  for (let i = 0; i < top.length; i++) {
+    const c = top[i];
+    const payload  = { distance_m: c.distance_m, geojson: c.geojson };
+    const tmplLike = { label: `${LABELS[i]} (${c.spec?.kind ?? 'circuito'})`, rationale: c.explanation };
+    const dbId = await persistGeneratedRoute(tmplLike, payload, origin_lat, origin_lng, distance_m);
+    items.push({
+      id:         dbId ?? i + 1,
+      preference: PREFS[i],
+      label:      LABELS[i],
+      rationale:  c.explanation,
+      distance_m: c.distance_m,
+      geojson:    c.geojson,
+      score:      c.score,
+      criteria:   c.criteria,
+    });
+  }
+
+  const result = {
+    items,
+    planner: {
+      candidates_evaluated: candidates.length,
+      hazards_considered:   hazards.length,
+      weights: {
+        w_dist_fid:   Number(weights.w_dist_fid   ?? DEFAULT_PLANNER_WEIGHTS.w_dist_fid),
+        w_hazard_exp: Number(weights.w_hazard_exp ?? DEFAULT_PLANNER_WEIGHTS.w_hazard_exp),
+        w_turns:      Number(weights.w_turns      ?? DEFAULT_PLANNER_WEIGHTS.w_turns),
+      },
+    },
+  };
+  tripCache.set(key, result);
+  return result;
 }

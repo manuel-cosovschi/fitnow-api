@@ -689,3 +689,10 @@ CREATE TABLE IF NOT EXISTS user_gamification (
   last_active TIMESTAMPTZ,
   updated_at  TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Pesos del planificador multicriterio de rutas (generación): fidelidad de
+-- distancia, exposición a hazards y complejidad de giros. Editables por el
+-- admin igual que el resto de ai_weights.
+ALTER TABLE ai_weights ADD COLUMN IF NOT EXISTS w_dist_fid   DECIMAL(6,4) NOT NULL DEFAULT 0.4500;
+ALTER TABLE ai_weights ADD COLUMN IF NOT EXISTS w_hazard_exp DECIMAL(6,4) NOT NULL DEFAULT 0.3500;
+ALTER TABLE ai_weights ADD COLUMN IF NOT EXISTS w_turns      DECIMAL(6,4) NOT NULL DEFAULT 0.2000;
