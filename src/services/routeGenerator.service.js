@@ -364,7 +364,11 @@ export async function generateRoutes({ origin_lat, origin_lng, distance_m }) {
     });
   }
   const ranked = scorePortfolio(eligible, { hazards, weights, targetM: distance_m });
-  const top    = ranked.slice(0, 3);
+  // Las rutas por calles van SIEMPRE antes que los respaldos geométricos: el
+  // círculo tiene distancia perfecta y cero giros, pero corta las manzanas —
+  // solo debe aparecer cuando no hay ruta real disponible.
+  const ordered = [...ranked.filter(c => !c.fallback), ...ranked.filter(c => c.fallback)];
+  const top     = ordered.slice(0, 3);
 
   // 5) Salida compatible con la app + persistencia con id real.
   const PREFS  = ['directa', 'circular', 'aventura'];
