@@ -1,0 +1,361 @@
+zone,origin,target_m,method,dist_m,err_pct,exposure_m,hazards_touched,turns_per_km,fallback,osrm_calls,latency_ms
+centro,Plaza San Martín,3000,B0,4725,57.5,0,0,1.27,0,1,261
+centro,Plaza San Martín,3000,B1,3000,0,279,1,0,1,7,941
+centro,Plaza San Martín,3000,M,3140,4.67,0,0,1.59,0,30,3554
+centro,Plaza San Martín,5000,B0,7381,47.62,300,1,1.35,0,1,133
+centro,Plaza San Martín,5000,B1,5062,1.24,0,0,1.19,0,5,669
+centro,Plaza San Martín,5000,M,5062,1.24,0,0,1.19,0,30,3207
+centro,Plaza San Martín,8000,B0,10178,27.23,300,1,0.79,0,1,133
+centro,Plaza San Martín,8000,B1,8227,2.84,300,1,1.34,0,2,265
+centro,Plaza San Martín,8000,M,8001,0.01,316,1,1.25,0,30,2885
+centro,Plaza San Martín,12000,B0,14506,20.88,300,1,0.83,0,1,144
+centro,Plaza San Martín,12000,B1,12043,0.36,300,1,0.66,0,5,678
+centro,Plaza San Martín,12000,M,12031,0.26,0,0,0.33,0,30,3275
+centro,Catedral,3000,B0,5009,66.97,0,0,0.8,0,1,133
+centro,Catedral,3000,B1,2951,1.63,0,0,1.69,0,4,525
+centro,Catedral,3000,M,2951,1.63,0,0,1.69,0,30,2849
+centro,Catedral,5000,B0,7140,42.8,150,1,0.7,0,1,131
+centro,Catedral,5000,B1,5009,0.18,0,0,0.8,0,4,524
+centro,Catedral,5000,M,4751,4.98,474,1,1.47,0,30,2896
+centro,Catedral,8000,B0,10192,27.4,150,1,0.49,0,1,136
+centro,Catedral,8000,B1,8047,0.59,150,1,0.62,0,2,316
+centro,Catedral,8000,M,8047,0.59,150,1,0.62,0,30,2911
+centro,Catedral,12000,B0,14247,18.73,150,1,0.56,0,1,133
+centro,Catedral,12000,B1,12304,2.53,150,1,0.49,0,4,538
+centro,Catedral,12000,M,11918,0.68,150,1,0.5,0,30,2930
+centro,Plaza Colón,3000,B0,4322,44.07,0,0,0.46,0,1,133
+centro,Plaza Colón,3000,B1,3000,0,0,0,0,1,7,931
+centro,Plaza Colón,3000,M,3000,0,0,0,0,1,30,3027
+centro,Plaza Colón,5000,B0,7022,40.44,300,1,0.43,0,1,135
+centro,Plaza Colón,5000,B1,5177,3.54,300,1,0.39,0,2,266
+centro,Plaza Colón,5000,M,4927,1.46,140,1,0.41,0,30,2973
+centro,Plaza Colón,8000,B0,9378,17.22,300,1,0.32,0,1,131
+centro,Plaza Colón,8000,B1,8208,2.6,300,1,0.12,0,2,284
+centro,Plaza Colón,8000,M,8208,2.6,300,1,0.12,0,30,3157
+centro,Plaza Colón,12000,B0,13812,15.1,300,1,0.36,0,1,136
+centro,Plaza Colón,12000,B1,12004,0.03,300,1,0.42,0,4,532
+centro,Plaza Colón,12000,M,11887,0.94,0,0,0.5,0,30,2880
+centro,Diagonal Pueyrredón,3000,B0,4157,38.57,329,1,1.44,0,1,132
+centro,Diagonal Pueyrredón,3000,B1,3144,4.8,494,1,1.27,0,2,280
+centro,Diagonal Pueyrredón,3000,M,3024,0.8,450,1,0.99,0,30,2954
+centro,Diagonal Pueyrredón,5000,B0,6359,27.18,479,2,0.79,0,1,141
+centro,Diagonal Pueyrredón,5000,B1,5152,3.04,329,1,1.16,0,2,269
+centro,Diagonal Pueyrredón,5000,M,4756,4.88,0,0,1.47,0,30,2905
+centro,Diagonal Pueyrredón,8000,B0,9949,24.36,479,2,0.6,0,1,133
+centro,Diagonal Pueyrredón,8000,B1,7655,4.31,479,2,0.78,0,6,799
+centro,Diagonal Pueyrredón,8000,M,7996,0.05,209,1,0.75,0,30,2946
+centro,Diagonal Pueyrredón,12000,B0,15973,33.11,644,2,0.56,0,1,142
+centro,Diagonal Pueyrredón,12000,B1,12382,3.18,644,2,0.57,0,4,538
+centro,Diagonal Pueyrredón,12000,M,11781,1.83,316,1,0.42,0,30,2931
+centro,Terminal vieja,3000,B0,4543,51.43,0,0,1.32,0,1,135
+centro,Terminal vieja,3000,B1,3051,1.7,209,1,1.64,0,4,543
+centro,Terminal vieja,3000,M,2988,0.4,0,0,2.34,0,30,2927
+centro,Terminal vieja,5000,B0,7458,49.16,0,0,1.07,0,1,129
+centro,Terminal vieja,5000,B1,4968,0.64,0,0,1.21,0,4,528
+centro,Terminal vieja,5000,M,4900,2,0,0,1.43,0,30,2888
+centro,Terminal vieja,8000,B0,10407,30.09,0,0,0.67,0,1,135
+centro,Terminal vieja,8000,B1,8000,0,0,0,0,1,7,930
+centro,Terminal vieja,8000,M,8086,1.08,0,0,1.24,0,30,3098
+centro,Terminal vieja,12000,B0,15223,26.86,0,0,1.05,0,1,140
+centro,Terminal vieja,12000,B1,11734,2.22,0,0,0.68,0,2,265
+centro,Terminal vieja,12000,M,12124,1.03,0,0,0.49,0,30,2979
+guemes,Güemes y Alvarado,3000,B0,4896,63.2,0,0,1.02,0,1,133
+guemes,Güemes y Alvarado,3000,B1,2937,2.1,0,0,1.7,0,4,547
+guemes,Güemes y Alvarado,3000,M,2937,2.1,0,0,1.7,0,30,2877
+guemes,Güemes y Alvarado,5000,B0,6554,31.08,0,0,0.76,0,1,135
+guemes,Güemes y Alvarado,5000,B1,4896,2.08,0,0,1.02,0,4,524
+guemes,Güemes y Alvarado,5000,M,5220,4.4,0,0,1.34,0,30,4535
+guemes,Güemes y Alvarado,8000,B0,10102,26.28,300,1,0.59,0,1,134
+guemes,Güemes y Alvarado,8000,B1,8309,3.86,0,0,0.6,0,2,290
+guemes,Güemes y Alvarado,8000,M,8061,0.76,313,1,0.87,0,30,2814
+guemes,Güemes y Alvarado,12000,B0,14410,20.08,300,1,0.49,0,1,133
+guemes,Güemes y Alvarado,12000,B1,12195,1.63,300,1,0.33,0,5,699
+guemes,Güemes y Alvarado,12000,M,12195,1.63,300,1,0.33,0,30,2868
+guemes,Plaza Mitre,3000,B0,4448,48.27,0,0,1.57,0,1,137
+guemes,Plaza Mitre,3000,B1,3000,0,0,0,0,1,7,918
+guemes,Plaza Mitre,3000,M,2964,1.2,0,0,2.02,0,30,2871
+guemes,Plaza Mitre,5000,B0,6607,32.14,0,0,0.61,0,1,135
+guemes,Plaza Mitre,5000,B1,4882,2.36,0,0,1.02,0,5,669
+guemes,Plaza Mitre,5000,M,4853,2.94,0,0,0.82,0,30,4447
+guemes,Plaza Mitre,8000,B0,9685,21.06,150,1,0.72,0,1,135
+guemes,Plaza Mitre,8000,B1,8400,5,150,1,0.6,0,2,266
+guemes,Plaza Mitre,8000,M,7970,0.38,209,1,1,0,30,2891
+guemes,Plaza Mitre,12000,B0,13906,15.88,150,1,0.43,0,1,134
+guemes,Plaza Mitre,12000,B1,12593,4.94,150,1,0.56,0,4,535
+guemes,Plaza Mitre,12000,M,11663,2.81,150,1,0.43,0,30,2888
+guemes,Güemes y Rodríguez Peña,3000,B0,4830,61,703,2,1.04,0,1,134
+guemes,Güemes y Rodríguez Peña,3000,B1,2924,2.53,494,1,1.37,0,4,528
+guemes,Güemes y Rodríguez Peña,3000,M,3137,4.57,0,0,1.28,0,30,3128
+guemes,Güemes y Rodríguez Peña,5000,B0,7993,59.86,703,2,0.63,0,1,140
+guemes,Güemes y Rodríguez Peña,5000,B1,4830,3.4,703,2,1.04,0,4,536
+guemes,Güemes y Rodríguez Peña,5000,M,5041,0.82,0,0,1.59,0,30,3166
+guemes,Güemes y Rodríguez Peña,8000,B0,11541,44.26,853,3,0.52,0,1,135
+guemes,Güemes y Rodríguez Peña,8000,B1,7993,0.09,703,2,0.63,0,2,263
+guemes,Güemes y Rodríguez Peña,8000,M,8385,4.81,0,0,1.19,0,30,3337
+guemes,Güemes y Rodríguez Peña,12000,B0,14804,23.37,853,3,0.41,0,1,141
+guemes,Güemes y Rodríguez Peña,12000,B1,12448,3.73,853,3,0.48,0,2,270
+guemes,Güemes y Rodríguez Peña,12000,M,12158,1.32,0,0,1.23,0,30,2903
+costa,Playa Grande,3000,B0,5686,89.53,279,1,0.35,0,1,136
+costa,Playa Grande,3000,B1,3000,0,0,0,0,1,7,922
+costa,Playa Grande,3000,M,2914,2.87,419,1,0.69,0,30,2970
+costa,Playa Grande,5000,B0,7566,51.32,419,2,0.79,0,1,142
+costa,Playa Grande,5000,B1,4751,4.98,279,1,0.42,0,5,677
+costa,Playa Grande,5000,M,5000,0,0,0,0,1,30,3029
+costa,Playa Grande,8000,B0,11330,41.63,419,2,0.26,0,1,134
+costa,Playa Grande,8000,B1,8000,0,165,1,0,1,7,939
+costa,Playa Grande,8000,M,8000,0,165,1,0,1,30,2922
+costa,Playa Grande,12000,B0,16971,41.43,719,3,0.12,0,1,134
+costa,Playa Grande,12000,B1,12000,0,0,0,0,1,7,933
+costa,Playa Grande,12000,M,11931,0.57,1731,2,0.42,0,30,3909
+costa,Cabo Corrientes,3000,B0,3829,27.63,209,1,2.35,0,1,133
+costa,Cabo Corrientes,3000,B1,3000,0,0,0,0,1,7,926
+costa,Cabo Corrientes,3000,M,3047,1.57,0,0,1.31,0,30,3182
+costa,Cabo Corrientes,5000,B0,7757,55.14,209,1,0.77,0,1,133
+costa,Cabo Corrientes,5000,B1,5000,0,225,1,0,1,7,927
+costa,Cabo Corrientes,5000,M,5080,1.6,140,1,1.57,0,30,3091
+costa,Cabo Corrientes,8000,B0,11305,41.31,509,2,0.62,0,1,132
+costa,Cabo Corrientes,8000,B1,7757,3.04,209,1,0.77,0,2,265
+costa,Cabo Corrientes,8000,M,7757,3.04,209,1,0.77,0,30,2838
+costa,Cabo Corrientes,12000,B0,15512,29.27,509,2,0.45,0,1,130
+costa,Cabo Corrientes,12000,B1,12212,1.77,509,2,0.57,0,2,272
+costa,Cabo Corrientes,12000,M,12009,0.08,489,2,0.33,0,30,2854
+costa,Varese,3000,B0,4084,36.13,70,1,1.47,0,1,133
+costa,Varese,3000,B1,3000,0,140,1,0,1,7,983
+costa,Varese,3000,M,3108,3.6,0,0,1.29,0,30,2891
+costa,Varese,5000,B0,8132,62.64,70,1,0.61,0,1,132
+costa,Varese,5000,B1,5000,0,0,0,0,1,7,1166
+costa,Varese,5000,M,5171,3.42,70,1,1.16,0,30,2814
+costa,Varese,8000,B0,12587,57.34,220,2,0.48,0,1,130
+costa,Varese,8000,B1,8132,1.65,70,1,0.61,0,3,401
+costa,Varese,8000,M,8132,1.65,70,1,0.61,0,30,4967
+costa,Varese,12000,B0,17402,45.02,220,2,0.34,0,1,181
+costa,Varese,12000,B1,12587,4.89,220,2,0.48,0,4,542
+costa,Varese,12000,M,11458,4.52,963,3,0.79,0,30,3187
+costa,Torreón del Monje,3000,B0,6231,107.7,140,1,0.48,0,1,131
+costa,Torreón del Monje,3000,B1,3000,0,0,0,0,1,7,923
+costa,Torreón del Monje,3000,M,3061,2.03,140,1,1.31,0,30,3176
+costa,Torreón del Monje,5000,B0,8840,76.8,290,2,0.34,0,1,133
+costa,Torreón del Monje,5000,B1,5000,0,1066,2,0,1,7,934
+costa,Torreón del Monje,5000,M,4954,0.92,209,1,1.21,0,30,2829
+costa,Torreón del Monje,8000,B0,11871,48.39,290,2,0.17,0,1,135
+costa,Torreón del Monje,8000,B1,8000,0,821,3,0,1,7,954
+costa,Torreón del Monje,8000,M,8036,0.45,349,1,1.87,0,30,2848
+costa,Torreón del Monje,12000,B0,17256,43.8,290,2,0.23,0,1,134
+costa,Torreón del Monje,12000,B1,11871,1.08,290,2,0.17,0,4,540
+costa,Torreón del Monje,12000,M,11872,1.07,290,2,0.17,0,30,2862
+costa,Perla Norte,3000,B0,4091,36.37,150,1,0.73,0,1,129
+costa,Perla Norte,3000,B1,3000,0,924,2,0,1,7,916
+costa,Perla Norte,3000,M,2892,3.6,0,0,0.35,0,30,3098
+costa,Perla Norte,5000,B0,6236,24.72,150,1,0.48,0,1,134
+costa,Perla Norte,5000,B1,5000,0,0,0,0,1,7,1018
+costa,Perla Norte,5000,M,5009,0.18,0,0,0.8,0,30,2827
+costa,Perla Norte,8000,B0,9481,18.51,150,1,0.53,0,1,131
+costa,Perla Norte,8000,B1,7996,0.05,150,1,0.5,0,4,531
+costa,Perla Norte,8000,M,7963,0.46,0,0,0.75,0,30,2865
+costa,Perla Norte,12000,B0,15579,29.83,150,1,0.39,0,1,131
+costa,Perla Norte,12000,B1,11517,4.03,150,1,0.69,0,5,1091
+costa,Perla Norte,12000,M,12018,0.15,0,0,0.25,0,30,2841
+puerto,Centro Comercial Puerto,3000,B0,4514,50.47,0,0,1.11,0,1,132
+puerto,Centro Comercial Puerto,3000,B1,3000,0,450,1,0,1,7,933
+puerto,Centro Comercial Puerto,3000,M,2900,3.33,1575,1,1.38,0,30,2883
+puerto,Centro Comercial Puerto,5000,B0,7571,51.42,209,1,1.19,0,1,133
+puerto,Centro Comercial Puerto,5000,B1,4891,2.18,0,0,1.43,0,5,1224
+puerto,Centro Comercial Puerto,5000,M,4891,2.18,0,0,1.43,0,30,2893
+puerto,Centro Comercial Puerto,8000,B0,12731,59.14,628,2,0.31,0,1,135
+puerto,Centro Comercial Puerto,8000,B1,7979,0.26,209,1,1,0,5,665
+puerto,Centro Comercial Puerto,8000,M,8110,1.38,0,0,1.23,0,30,3071
+puerto,Centro Comercial Puerto,12000,B0,16316,35.97,628,2,0.18,0,1,140
+puerto,Centro Comercial Puerto,12000,B1,12074,0.62,419,1,0.41,0,4,549
+puerto,Centro Comercial Puerto,12000,M,11957,0.36,0,0,0.67,0,30,3178
+puerto,Escollera Sur,3000,B0,7129,137.63,1313,1,1.12,0,1,161
+puerto,Escollera Sur,3000,B1,3000,0,0,0,0,1,7,956
+puerto,Escollera Sur,3000,M,3000,0,0,0,0,1,30,2823
+puerto,Escollera Sur,5000,B0,8560,71.2,1469,2,0.47,0,1,134
+puerto,Escollera Sur,5000,B1,5000,0,0,0,0,1,7,945
+puerto,Escollera Sur,5000,M,5000,0,0,0,0,1,30,3084
+puerto,Escollera Sur,8000,B0,12801,60.01,1399,2,0.31,0,1,133
+puerto,Escollera Sur,8000,B1,8024,0.3,1313,1,1.25,0,3,398
+puerto,Escollera Sur,8000,M,8083,1.04,0,0,1.11,0,30,2892
+puerto,Escollera Sur,12000,B0,18445,53.71,1871,3,0.27,0,1,138
+puerto,Escollera Sur,12000,B1,12000,0,0,0,0,1,7,951
+puerto,Escollera Sur,12000,M,11464,4.47,125,1,0.7,0,30,3570
+puerto,12 de Octubre y Juramento,3000,B0,4748,58.27,0,0,2.11,0,1,133
+puerto,12 de Octubre y Juramento,3000,B1,3000,0,0,0,0,1,7,920
+puerto,12 de Octubre y Juramento,3000,M,2940,2,0,0,2.72,0,30,6145
+puerto,12 de Octubre y Juramento,5000,B0,7385,47.7,125,1,1.35,0,1,133
+puerto,12 de Octubre y Juramento,5000,B1,4899,2.02,0,0,1.43,0,5,663
+puerto,12 de Octubre y Juramento,5000,M,4899,2.02,0,0,1.43,0,30,2888
+puerto,12 de Octubre y Juramento,8000,B0,11561,44.51,494,2,0.86,0,1,131
+puerto,12 de Octubre y Juramento,8000,B1,7803,2.46,0,0,1.28,0,5,662
+puerto,12 de Octubre y Juramento,8000,M,8020,0.25,0,0,1.25,0,30,2842
+puerto,12 de Octubre y Juramento,12000,B0,16768,39.73,349,2,0.6,0,1,136
+puerto,12 de Octubre y Juramento,12000,B1,11557,3.69,316,1,1.04,0,5,691
+puerto,12 de Octubre y Juramento,12000,M,11959,0.34,0,0,0.84,0,30,2879
+residencial,Barrio Los Troncos,3000,B0,4579,52.63,0,0,1.31,0,1,132
+residencial,Barrio Los Troncos,3000,B1,2934,2.2,0,0,2.04,0,4,536
+residencial,Barrio Los Troncos,3000,M,2934,2.2,0,0,1.36,0,30,2984
+residencial,Barrio Los Troncos,5000,B0,7461,49.22,0,0,0.94,0,1,133
+residencial,Barrio Los Troncos,5000,B1,5013,0.26,0,0,1.2,0,5,750
+residencial,Barrio Los Troncos,5000,M,5010,0.2,0,0,1.6,0,30,2972
+residencial,Barrio Los Troncos,8000,B0,10376,29.7,0,0,0.77,0,1,133
+residencial,Barrio Los Troncos,8000,B1,7772,2.85,474,1,0.9,0,5,669
+residencial,Barrio Los Troncos,8000,M,8201,2.51,250,1,0.98,0,30,3897
+residencial,Barrio Los Troncos,12000,B0,15129,26.08,150,1,0.59,0,1,136
+residencial,Barrio Los Troncos,12000,B1,11710,2.42,0,0,0.6,0,2,271
+residencial,Barrio Los Troncos,12000,M,12512,4.27,350,2,0.64,0,30,4075
+residencial,Divino Rostro,3000,B0,4579,52.63,0,0,1.75,0,1,143
+residencial,Divino Rostro,3000,B1,2916,2.8,0,0,2.06,0,4,527
+residencial,Divino Rostro,3000,M,3026,0.87,0,0,2.64,0,30,2916
+residencial,Divino Rostro,5000,B0,7357,47.14,948,2,1.36,0,1,146
+residencial,Divino Rostro,5000,B1,4794,4.12,140,1,1.67,0,4,539
+residencial,Divino Rostro,5000,M,5083,1.66,0,0,2.56,0,30,3226
+residencial,Divino Rostro,8000,B0,11109,38.86,474,1,0.99,0,1,134
+residencial,Divino Rostro,8000,B1,8015,0.19,140,1,1.25,0,4,580
+residencial,Divino Rostro,8000,M,7968,0.4,0,0,1.63,0,30,6673
+residencial,Divino Rostro,12000,B0,15473,28.94,774,2,0.71,0,1,134
+residencial,Divino Rostro,12000,B1,12032,0.27,774,2,0.75,0,2,270
+residencial,Divino Rostro,12000,M,11915,0.71,0,0,1.09,0,30,2867
+residencial,Barrio Chauvin,3000,B0,4310,43.67,474,1,1.39,0,1,132
+residencial,Barrio Chauvin,3000,B1,3119,3.97,0,0,1.92,0,5,697
+residencial,Barrio Chauvin,3000,M,2945,1.83,0,0,1.36,0,30,3134
+residencial,Barrio Chauvin,5000,B0,7351,47.02,924,2,1.5,0,1,220
+residencial,Barrio Chauvin,5000,B1,4855,2.9,316,1,1.65,0,5,686
+residencial,Barrio Chauvin,5000,M,4851,2.98,0,0,1.24,0,30,2880
+residencial,Barrio Chauvin,8000,B0,12522,56.53,0,0,0.72,0,1,134
+residencial,Barrio Chauvin,8000,B1,7771,2.86,1134,3,1.16,0,7,938
+residencial,Barrio Chauvin,8000,M,7937,0.79,0,0,1.51,0,30,2847
+residencial,Barrio Chauvin,12000,B0,16289,35.74,0,0,0.61,0,1,135
+residencial,Barrio Chauvin,12000,B1,11889,0.93,450,1,0.76,0,5,779
+residencial,Barrio Chauvin,12000,M,11810,1.58,0,0,0.42,0,30,2864
+residencial,Barrio La Perla,3000,B0,4103,36.77,150,1,1.46,0,1,148
+residencial,Barrio La Perla,3000,B1,3000,0,140,1,0,1,7,927
+residencial,Barrio La Perla,3000,M,2995,0.17,0,0,2.67,0,30,3092
+residencial,Barrio La Perla,5000,B0,6828,36.56,150,1,0.88,0,1,131
+residencial,Barrio La Perla,5000,B1,5047,0.94,308,2,1.19,0,6,1027
+residencial,Barrio La Perla,5000,M,4865,2.7,0,0,2.06,0,30,2894
+residencial,Barrio La Perla,8000,B0,9790,22.38,150,1,0.61,0,1,132
+residencial,Barrio La Perla,8000,B1,8224,2.8,150,1,0.61,0,5,670
+residencial,Barrio La Perla,8000,M,8060,0.75,0,0,0.99,0,30,3221
+residencial,Barrio La Perla,12000,B0,13886,15.72,150,1,0.5,0,1,133
+residencial,Barrio La Perla,12000,B1,11776,1.87,150,1,0.93,0,5,664
+residencial,Barrio La Perla,12000,M,12079,0.66,0,0,0.66,0,30,2898
+residencial,Plaza Pueyrredón,3000,B0,4854,61.8,0,0,2.47,0,1,134
+residencial,Plaza Pueyrredón,3000,B1,2950,1.67,0,0,2.71,0,4,555
+residencial,Plaza Pueyrredón,3000,M,2950,1.67,0,0,2.71,0,30,2847
+residencial,Plaza Pueyrredón,5000,B0,7585,51.7,0,0,1.58,0,1,136
+residencial,Plaza Pueyrredón,5000,B1,4854,2.92,0,0,2.47,0,4,533
+residencial,Plaza Pueyrredón,5000,M,5056,1.12,0,0,2.37,0,30,2867
+residencial,Plaza Pueyrredón,8000,B0,12294,53.68,0,0,0.81,0,1,143
+residencial,Plaza Pueyrredón,8000,B1,8042,0.53,0,0,1.12,0,6,807
+residencial,Plaza Pueyrredón,8000,M,8027,0.34,0,0,1,0,30,2894
+residencial,Plaza Pueyrredón,12000,B0,16618,38.48,0,0,0.78,0,1,133
+residencial,Plaza Pueyrredón,12000,B1,12294,2.45,0,0,0.81,0,5,670
+residencial,Plaza Pueyrredón,12000,M,11781,1.83,0,0,0.93,0,30,2949
+norte,Constitución y la costa,3000,B0,5462,82.07,0,0,1.46,0,1,128
+norte,Constitución y la costa,3000,B1,3000,0,0,0,0,1,7,918
+norte,Constitución y la costa,3000,M,3000,0,0,0,0,1,30,2817
+norte,Constitución y la costa,5000,B0,7895,57.9,0,0,1.14,0,1,212
+norte,Constitución y la costa,5000,B1,4943,1.14,0,0,1.21,0,3,2789
+norte,Constitución y la costa,5000,M,5000,0,0,0,0,1,30,2845
+norte,Constitución y la costa,8000,B0,12556,56.95,0,0,0.56,0,1,133
+norte,Constitución y la costa,8000,B1,7825,2.19,0,0,0.89,0,4,531
+norte,Constitución y la costa,8000,M,7978,0.27,0,0,1.13,0,30,2871
+norte,Constitución y la costa,12000,B0,15066,25.55,0,0,0.8,0,1,130
+norte,Constitución y la costa,12000,B1,12370,3.08,0,0,0.49,0,2,265
+norte,Constitución y la costa,12000,M,12345,2.88,0,0,0.57,0,30,2878
+norte,Av. Constitución 5500,3000,B0,4656,55.2,0,0,2.15,0,1,130
+norte,Av. Constitución 5500,3000,B1,2994,0.2,0,0,2.67,0,4,552
+norte,Av. Constitución 5500,3000,M,2994,0.2,0,0,2.67,0,30,2846
+norte,Av. Constitución 5500,5000,B0,7146,42.92,0,0,1.4,0,1,132
+norte,Av. Constitución 5500,5000,B1,4757,4.86,0,0,1.89,0,7,971
+norte,Av. Constitución 5500,5000,M,5062,1.24,0,0,1.38,0,30,2953
+norte,Av. Constitución 5500,8000,B0,11816,47.7,0,0,0.76,0,1,130
+norte,Av. Constitución 5500,8000,B1,8352,4.4,0,0,1.56,0,2,264
+norte,Av. Constitución 5500,8000,M,8051,0.64,0,0,0.99,0,30,3089
+norte,Av. Constitución 5500,12000,B0,16482,37.35,0,0,0.85,0,1,129
+norte,Av. Constitución 5500,12000,B1,11862,1.15,0,0,0.59,0,2,265
+norte,Av. Constitución 5500,12000,M,11680,2.67,0,0,0.6,0,30,2836
+norte,Parque Camet,3000,B0,5287,76.23,0,0,2.08,0,1,132
+norte,Parque Camet,3000,B1,3000,0,0,0,0,1,7,926
+norte,Parque Camet,3000,M,2993,0.23,0,0,1.67,0,30,2891
+norte,Parque Camet,5000,B0,9259,85.18,0,0,1.19,0,1,133
+norte,Parque Camet,5000,B1,4984,0.32,0,0,1.61,0,5,658
+norte,Parque Camet,5000,M,4984,0.32,0,0,1.61,0,30,2884
+norte,Parque Camet,8000,B0,13148,64.35,0,0,0.53,0,1,130
+norte,Parque Camet,8000,B1,8000,0,0,0,0,1,7,932
+norte,Parque Camet,8000,M,7943,0.71,0,0,0.5,0,30,2841
+norte,Parque Camet,12000,B0,16261,35.51,0,0,0.49,0,1,134
+norte,Parque Camet,12000,B1,11809,1.59,0,0,0.76,0,4,531
+norte,Parque Camet,12000,M,12126,1.05,0,0,0.66,0,30,2853
+norte,Barrio Constitución,3000,B0,4493,49.77,0,0,1.56,0,1,139
+norte,Barrio Constitución,3000,B1,2948,1.73,0,0,2.71,0,4,552
+norte,Barrio Constitución,3000,M,3070,2.33,0,0,2.28,0,30,2826
+norte,Barrio Constitución,5000,B0,8455,69.1,0,0,1.3,0,1,133
+norte,Barrio Constitución,5000,B1,5237,4.74,0,0,1.91,0,5,699
+norte,Barrio Constitución,5000,M,5092,1.84,0,0,0.98,0,30,2866
+norte,Barrio Constitución,8000,B0,10962,37.03,0,0,1.37,0,1,134
+norte,Barrio Constitución,8000,B1,8000,0,0,0,0,1,7,927
+norte,Barrio Constitución,8000,M,8085,1.06,0,0,0.62,0,30,4089
+norte,Barrio Constitución,12000,B0,19807,65.06,0,0,0.56,0,1,132
+norte,Barrio Constitución,12000,B1,12000,0,0,0,0,1,7,926
+norte,Barrio Constitución,12000,M,11589,3.43,0,0,0.43,0,30,2865
+oeste,Plaza Rocha,3000,B0,4614,53.8,0,0,0.87,0,1,134
+oeste,Plaza Rocha,3000,B1,2927,2.43,0,0,2.39,0,4,528
+oeste,Plaza Rocha,3000,M,2934,2.2,0,0,2.39,0,30,4458
+oeste,Plaza Rocha,5000,B0,7131,42.62,0,0,1.12,0,1,132
+oeste,Plaza Rocha,5000,B1,5053,1.06,140,1,1.58,0,6,796
+oeste,Plaza Rocha,5000,M,4888,2.24,0,0,1.43,0,30,2853
+oeste,Plaza Rocha,8000,B0,10761,34.51,0,0,0.56,0,1,131
+oeste,Plaza Rocha,8000,B1,8176,2.2,0,0,0.73,0,6,809
+oeste,Plaza Rocha,8000,M,8176,2.2,0,0,0.73,0,30,2882
+oeste,Plaza Rocha,12000,B0,15828,31.9,0,0,0.63,0,1,135
+oeste,Plaza Rocha,12000,B1,12034,0.28,0,0,0.66,0,2,262
+oeste,Plaza Rocha,12000,M,12414,3.45,0,0,0.4,0,30,2851
+oeste,Barrio Plaza Peralta Ramos,3000,B0,4179,39.3,0,0,1.91,0,1,132
+oeste,Barrio Plaza Peralta Ramos,3000,B1,2914,2.87,0,0,2.06,0,4,525
+oeste,Barrio Plaza Peralta Ramos,3000,M,2921,2.63,0,0,1.37,0,30,2820
+oeste,Barrio Plaza Peralta Ramos,5000,B0,7071,41.42,0,0,1.27,0,1,132
+oeste,Barrio Plaza Peralta Ramos,5000,B1,4823,3.54,0,0,2.07,0,5,662
+oeste,Barrio Plaza Peralta Ramos,5000,M,5038,0.76,0,0,1.59,0,30,3349
+oeste,Barrio Plaza Peralta Ramos,8000,B0,11175,39.69,0,0,0.89,0,1,133
+oeste,Barrio Plaza Peralta Ramos,8000,B1,8008,0.1,0,0,1.25,0,6,786
+oeste,Barrio Plaza Peralta Ramos,8000,M,8008,0.1,0,0,1.25,0,30,2822
+oeste,Barrio Plaza Peralta Ramos,12000,B0,16830,40.25,0,0,0.77,0,1,138
+oeste,Barrio Plaza Peralta Ramos,12000,B1,12480,4,0,0,0.88,0,2,260
+oeste,Barrio Plaza Peralta Ramos,12000,M,11996,0.03,0,0,0.83,0,30,2853
+oeste,San Juan y Alberti,3000,B0,4399,46.63,450,1,1.14,0,1,135
+oeste,San Juan y Alberti,3000,B1,2978,0.73,0,0,2.69,0,4,524
+oeste,San Juan y Alberti,3000,M,3131,4.37,0,0,1.92,0,30,3166
+oeste,San Juan y Alberti,5000,B0,7392,47.84,450,1,1.35,0,1,130
+oeste,San Juan y Alberti,5000,B1,4890,2.2,450,1,1.64,0,4,530
+oeste,San Juan y Alberti,5000,M,4981,0.38,450,1,1.2,0,30,3183
+oeste,San Juan y Alberti,8000,B0,11643,45.54,0,0,1.03,0,1,131
+oeste,San Juan y Alberti,8000,B1,8223,2.79,450,1,1.22,0,5,646
+oeste,San Juan y Alberti,8000,M,7982,0.22,0,0,0.88,0,30,3217
+oeste,San Juan y Alberti,12000,B0,15907,32.56,0,0,0.69,0,1,132
+oeste,San Juan y Alberti,12000,B1,12057,0.48,0,0,1,0,5,666
+oeste,San Juan y Alberti,12000,M,11623,3.14,0,0,0.6,0,30,3436
+sur,Bosque Peralta Ramos,3000,B0,5178,72.6,0,0,1.93,0,1,133
+sur,Bosque Peralta Ramos,3000,B1,3000,0,419,1,0,1,7,945
+sur,Bosque Peralta Ramos,3000,M,3142,4.73,0,0,1.59,0,30,3139
+sur,Bosque Peralta Ramos,5000,B0,7273,45.46,0,0,1.37,0,1,133
+sur,Bosque Peralta Ramos,5000,B1,5178,3.56,0,0,1.93,0,4,522
+sur,Bosque Peralta Ramos,5000,M,5043,0.86,0,0,1.39,0,30,2927
+sur,Bosque Peralta Ramos,8000,B0,12327,54.09,0,0,0.89,0,1,135
+sur,Bosque Peralta Ramos,8000,B1,8098,1.23,0,0,1.23,0,5,667
+sur,Bosque Peralta Ramos,8000,M,8286,3.58,0,0,0.84,0,30,2841
+sur,Bosque Peralta Ramos,12000,B0,17830,48.58,0,0,0.67,0,1,386
+sur,Bosque Peralta Ramos,12000,B1,12346,2.88,0,0,1.38,0,6,787
+sur,Bosque Peralta Ramos,12000,M,12316,2.63,0,0,0.89,0,30,2852
+sur,Punta Mogotes,3000,B0,5238,74.6,125,1,0.76,0,1,138
+sur,Punta Mogotes,3000,B1,3000,0,0,0,0,1,7,920
+sur,Punta Mogotes,3000,M,2893,3.57,125,1,1.73,0,30,2798
+sur,Punta Mogotes,5000,B0,7470,49.4,125,1,0.8,0,1,132
+sur,Punta Mogotes,5000,B1,4942,1.16,125,1,1.21,0,3,508
+sur,Punta Mogotes,5000,M,5212,4.24,125,1,1.73,0,30,2796
+sur,Punta Mogotes,8000,B0,10459,30.74,1438,2,0.67,0,1,133
+sur,Punta Mogotes,8000,B1,8281,3.51,125,1,0.85,0,2,262
+sur,Punta Mogotes,8000,M,8289,3.61,125,1,0.24,0,30,2812
+sur,Punta Mogotes,12000,B0,14526,21.05,125,1,0.48,0,1,135
+sur,Punta Mogotes,12000,B1,11543,3.81,913,2,0.52,0,2,279
+sur,Punta Mogotes,12000,M,12004,0.03,125,1,0.33,0,30,3009
