@@ -12,7 +12,7 @@ import { LRUCache } from '../utils/lruCache.js';
 import * as runRepo from '../repositories/run.repository.js';
 import * as hazardRepo from '../repositories/hazard.repository.js';
 import * as aiRepo from '../repositories/ai.repository.js';
-import { scorePortfolio, DEFAULT_PLANNER_WEIGHTS } from './routeEvaluator.service.js';
+import { scorePortfolio, DEFAULT_PLANNER_WEIGHTS, applyProfile, isNight } from './routeEvaluator.service.js';
 
 const OSRM_BASE       = () => process.env.OSRM_BASE || 'https://router.project-osrm.org';
 const OSRM_TIMEOUT_MS = () => parseInt(process.env.OSRM_TIMEOUT_MS, 10) || 6000;
@@ -331,24 +331,39 @@ async function persistGeneratedRoute(tmpl, payload, origin_lat, origin_lng, dist
  *      ruta con su puntaje, el desglose de criterios y la explicación.
  */
 // Genera la cartera de rutas, las evalúa con el puntaje propio y devuelve las 3 mejores.
-export async function generateRoutes({ origin_lat, origin_lng, distance_m }) {
-  const key = cacheKey(origin_lat, origin_lng, distance_m, 'portfolio-v1');
+export async function generateRoutes({ origin_lat, origin_lng, distance_m, profile = 'equilibrado', when = null }) {
+  const night = isNight(when);
+  const key = cacheKey(origin_lat, origin_lng, distance_m, `portfolio-v2|${profile}|${night ? 'n' : 'd'}`);
   const cached = tripCache.get(key);
   if (cached) return cached;
 
   // 1) Cartera de candidatas por calles.
   const candidates = await generatePortfolio(origin_lat, origin_lng, distance_m);
 
-  // 2) Hazards activos alrededor del origen (radio acorde a la distancia pedida).
+  // 2) Contexto: hazards activos cercanos y rutas ya calificadas de la zona
+  //    (para el criterio de historial). Ambas consultas toleran base caída.
+  const radius = Math.min(distance_m / 2 + 800, 8000);
   const hazards = await hazardRepo
-    .findNear({ lat: origin_lat, lng: origin_lng, radius_m: Math.min(distance_m / 2 + 800, 8000) })
+    .findNear({ lat: origin_lat, lng: origin_lng, radius_m: radius })
+    .catch(() => []);
+  const ratedRoutes = await runRepo
+    .getRoutesWithMetrics({ lat: origin_lat, lng: origin_lng, radius_m: radius })
+    .then(rows => rows
+      .filter(r => (Number(r.feedback_count) || 0) > 0 && r.polyline)
+      .map(r => {
+        try {
+          const g = JSON.parse(r.polyline);
+          return { coords: g.coordinates ?? g, avg_rating: r.avg_rating, feedback_count: r.feedback_count };
+        } catch { return null; }
+      })
+      .filter(Boolean))
     .catch(() => []);
 
   // 4) Evaluación multicriterio y selección. La selección final mantiene la
   //    garantía de distancia: solo entran candidatas dentro de la tolerancia;
   //    si no llegan a 3, se completa con loops geométricos exactos (que
   //    también pasan por el evaluador, así compiten en igualdad).
-  const weights   = await getPlannerWeights();
+  const weights   = applyProfile(await getPlannerWeights(), profile);
   const inRange   = c => Math.abs(c.distance_m - distance_m) / distance_m <= DISTANCE_TOLERANCE;
   let eligible    = candidates.filter(inRange);
   const usedBearings = new Set();
@@ -363,7 +378,7 @@ export async function generateRoutes({ origin_lat, origin_lng, distance_m }) {
       fallback: true,
     });
   }
-  const ranked = scorePortfolio(eligible, { hazards, weights, targetM: distance_m });
+  const ranked = scorePortfolio(eligible, { hazards, weights, targetM: distance_m, night, ratedRoutes });
   // Las rutas por calles van SIEMPRE antes que los respaldos geométricos: el
   // círculo tiene distancia perfecta y cero giros, pero corta las manzanas —
   // solo debe aparecer cuando no hay ruta real disponible.
@@ -396,11 +411,10 @@ export async function generateRoutes({ origin_lat, origin_lng, distance_m }) {
     planner: {
       candidates_evaluated: candidates.length,
       hazards_considered:   hazards.length,
-      weights: {
-        w_dist_fid:   Number(weights.w_dist_fid   ?? DEFAULT_PLANNER_WEIGHTS.w_dist_fid),
-        w_hazard_exp: Number(weights.w_hazard_exp ?? DEFAULT_PLANNER_WEIGHTS.w_hazard_exp),
-        w_turns:      Number(weights.w_turns      ?? DEFAULT_PLANNER_WEIGHTS.w_turns),
-      },
+      rated_routes_considered: ratedRoutes.length,
+      profile,
+      night,
+      weights,
     },
   };
   tripCache.set(key, result);

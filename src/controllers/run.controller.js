@@ -28,10 +28,17 @@ export async function routesPost(req, res, next) {
     const { origin_lat, origin_lng, distance_m } = req.body;
 
     if (origin_lat !== undefined && origin_lng !== undefined && distance_m !== undefined) {
+      // Parámetros opcionales del planificador: perfil de pesos y horario.
+      const PROFILES = ['equilibrado', 'seguridad', 'distancia'];
+      const profile  = PROFILES.includes(req.body.profile) ? req.body.profile : 'equilibrado';
+      const when     = typeof req.body.when === 'string' && !isNaN(new Date(req.body.when)) ? req.body.when : null;
+
       const result = await generateRoutes({
         origin_lat: Number(origin_lat),
         origin_lng: Number(origin_lng),
         distance_m: Number(distance_m),
+        profile,
+        when,
       });
       return res.json(result);
     }

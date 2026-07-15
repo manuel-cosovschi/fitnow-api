@@ -113,7 +113,7 @@ export async function getRoutesWithMetrics({ lat, lng, radius_m = 10000 }) {
     `SELECT * FROM (
        SELECT rr.id, rr.title, rr.city, rr.surface, rr.difficulty,
               rr.distance_m, rr.duration_s, rr.elevation_up_m,
-              rr.center_lat, rr.center_lng, rr.thumbnail_url,
+              rr.center_lat, rr.center_lng, rr.thumbnail_url, rr.polyline,
               (6371000 * ACOS(LEAST(1.0, COS(RADIANS(?)) * COS(RADIANS(rr.center_lat))
                 * COS(RADIANS(rr.center_lng) - RADIANS(?))
                 + SIN(RADIANS(?)) * SIN(RADIANS(rr.center_lat))))) AS distance_from_user_m,

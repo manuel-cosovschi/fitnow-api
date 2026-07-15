@@ -5,6 +5,10 @@ import {
   turnComplexity,
   distanceFidelity,
   scorePortfolio,
+  isNight,
+  applyProfile,
+  historicalAffinity,
+  DEFAULT_PLANNER_WEIGHTS,
 } from '../../src/services/routeEvaluator.service.js';
 
 // Línea recta de ~1 km hacia el norte desde el origen (0,0). En el ecuador,
@@ -103,5 +107,67 @@ describe('scorePortfolio', () => {
     expect(ranked[0].criteria.distance_fidelity).toBe(1);
     expect(typeof ranked[0].explanation).toBe('string');
     expect(ranked[0].explanation).toContain('km');
+  });
+});
+
+describe('isNight y modo nocturno', () => {
+  it('detecta la noche en hora argentina', () => {
+    expect(isNight('2026-07-15T02:00:00-03:00')).toBe(true);   // 2 AM ART
+    expect(isNight('2026-07-15T15:00:00-03:00')).toBe(false);  // 3 PM ART
+    expect(isNight(null)).toBe(false);
+    expect(isNight('no es fecha')).toBe(false);
+  });
+
+  it('de noche, un hazard de iluminación pesa el doble', () => {
+    const hz = [{ id: 1, lat: 0.0045, lng: 0, type: 'iluminacion', severity: 2, votes: 2, status: 'active' }];
+    const dia   = hazardExposure(straight1km, hz, { night: false }).exposureM;
+    const noche = hazardExposure(straight1km, hz, { night: true }).exposureM;
+    expect(noche).toBe(dia * 2);
+  });
+
+  it('de noche, un hazard que no es de iluminación pesa igual', () => {
+    const hz = [{ id: 1, lat: 0.0045, lng: 0, type: 'obra', severity: 2, votes: 2, status: 'active' }];
+    expect(hazardExposure(straight1km, hz, { night: true }).exposureM)
+      .toBe(hazardExposure(straight1km, hz, { night: false }).exposureM);
+  });
+});
+
+describe('perfiles de pesos', () => {
+  const target = 1000;
+  // limpia pero con 6% de error de distancia (fidelidad baja)
+  const limpiaImprecisa = { spec: { kind: 'ida-vuelta' }, distance_m: 1060, geojson: { type: 'LineString', coordinates: straight1km } };
+  // exacta pero pasa por un hazard grave
+  const exactaRiesgosa  = { spec: { kind: 'ida-vuelta' }, distance_m: 1000, geojson: { type: 'LineString', coordinates: [[0.02, 0], [0.02, 0.009]] } };
+  const hazards = [{ id: 9, lat: 0.0045, lng: 0.02, severity: 3, votes: 6, status: 'active' }];
+
+  it('el perfil seguridad prefiere la limpia; el perfil distancia prefiere la exacta', () => {
+    const seg = scorePortfolio([limpiaImprecisa, exactaRiesgosa],
+      { hazards, weights: applyProfile(DEFAULT_PLANNER_WEIGHTS, 'seguridad'), targetM: target });
+    const dis = scorePortfolio([limpiaImprecisa, exactaRiesgosa],
+      { hazards, weights: applyProfile(DEFAULT_PLANNER_WEIGHTS, 'distancia'), targetM: target });
+    expect(seg[0].criteria.hazards_touched).toBe(0);        // gana la limpia
+    expect(dis[0].criteria.distance_fidelity).toBe(1);      // gana la exacta
+  });
+});
+
+describe('historicalAffinity', () => {
+  it('una candidata que calca una ruta bien calificada tiene afinidad alta', () => {
+    const rated = [{ coords: straight1km, avg_rating: 5, feedback_count: 3 }];
+    const aff = historicalAffinity(straight1km, rated);
+    expect(aff).toBeGreaterThan(0.8);
+  });
+
+  it('una candidata lejos de las calificadas tiene afinidad ~0', () => {
+    const rated = [{ coords: straight1km, avg_rating: 5, feedback_count: 3 }];
+    const lejos = [[0.05, 0], [0.05, 0.009]];
+    expect(historicalAffinity(lejos, rated)).toBeLessThan(0.05);
+  });
+
+  it('sin rutas calificadas devuelve null y el criterio se saltea', () => {
+    expect(historicalAffinity(straight1km, [])).toBe(null);
+    const ranked = scorePortfolio(
+      [{ spec: {}, distance_m: 1000, geojson: { type: 'LineString', coordinates: straight1km } }],
+      { hazards: [], targetM: 1000, ratedRoutes: [] });
+    expect(ranked[0].criteria.historical_affinity).toBeUndefined();
   });
 });
