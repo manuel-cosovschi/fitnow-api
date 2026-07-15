@@ -154,7 +154,7 @@ export async function finishSession(sessionId, userId, stats) {
 
   // Normalize client-friendly field names to repo-aligned names
   const summary = {
-    finished_at:     stats.finished_at    ?? null,
+    finished_at:     stats.finished_at    ?? new Date().toISOString(),
     duration_s:      stats.duration_s     ?? null,
     distance_m:      stats.distance_m     ?? null,
     avg_pace_s:      stats.avg_pace_s     ?? stats.avg_pace ?? null,

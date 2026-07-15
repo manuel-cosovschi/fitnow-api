@@ -63,7 +63,8 @@ function paceBand(sPerKm) {
  */
 // Calcula tu carga de entrenamiento: cuántos km hiciste esta semana contra tu promedio del último mes (ACWR). Sirve para avisarte si estás subiendo el volumen demasiado rápido.
 export function computeTrainingContext(sessions = [], now = new Date()) {
-  const done = sessions.filter((s) => s && isNum(s.distance_m) && s.finished_at);
+  // Las sesiones viejas pueden tener finished_at en null; started_at sirve igual.
+  const done = sessions.filter((s) => s && isNum(s.distance_m) && (s.finished_at || s.started_at));
   if (done.length === 0) return null;
 
   const DAY = 86400000;
@@ -72,7 +73,7 @@ export function computeTrainingContext(sessions = [], now = new Date()) {
   const recent = [];
 
   for (const s of done) {
-    const finished = new Date(s.finished_at);
+    const finished = new Date(s.finished_at ?? s.started_at);
     if (isNaN(finished)) continue;
     const daysAgo = (now - finished) / DAY;
     if (daysAgo < 0 || daysAgo > 28) continue;

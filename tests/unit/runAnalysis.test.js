@@ -114,6 +114,11 @@ describe('computeTrainingContext (ACWR)', () => {
     expect(a.improvements.join(' ')).toContain('lesion');
   });
 
+  it('usa started_at cuando finished_at viene en null', () => {
+    const t = computeTrainingContext([{ distance_m: 5000, finished_at: null, started_at: daysAgo(2) }]);
+    expect(t.acute_km).toBe(5);
+  });
+
   it('las corridas de hace más de 28 días no cuentan', () => {
     const t = computeTrainingContext([{ distance_m: 40000, finished_at: daysAgo(40) }]);
     expect(t).toBe(null);
