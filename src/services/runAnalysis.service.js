@@ -56,12 +56,62 @@ function paceBand(sPerKm) {
 }
 
 /**
+ * Training load context from the runner's recent completed sessions.
+ * ACWR (acute:chronic workload ratio) compares the last 7 days of volume
+ * against the weekly average of the last 28 days. Values above ~1.5 indicate
+ * a load spike associated with injury risk; below ~0.8, undertraining.
+ */
+// Calcula tu carga de entrenamiento: cuántos km hiciste esta semana contra tu promedio del último mes (ACWR). Sirve para avisarte si estás subiendo el volumen demasiado rápido.
+export function computeTrainingContext(sessions = [], now = new Date()) {
+  const done = sessions.filter((s) => s && isNum(s.distance_m) && s.finished_at);
+  if (done.length === 0) return null;
+
+  const DAY = 86400000;
+  let acuteM = 0;
+  let monthM = 0;
+  const recent = [];
+
+  for (const s of done) {
+    const finished = new Date(s.finished_at);
+    if (isNaN(finished)) continue;
+    const daysAgo = (now - finished) / DAY;
+    if (daysAgo < 0 || daysAgo > 28) continue;
+    monthM += s.distance_m;
+    if (daysAgo <= 7) acuteM += s.distance_m;
+    if (recent.length < 3) {
+      recent.push({
+        distancia_km: Math.round((s.distance_m / 1000) * 100) / 100,
+        ritmo: isNum(s.avg_pace_s) ? formatPace(s.avg_pace_s) : null,
+        hace_dias: Math.max(0, Math.round(daysAgo)),
+      });
+    }
+  }
+
+  if (monthM === 0) return null;
+
+  const acute_km = Math.round((acuteM / 1000) * 10) / 10;
+  const chronic_weekly_km = Math.round((monthM / 4000) * 10) / 10;
+  // Con menos de 1 km semanal de base el cociente no dice nada.
+  const acwr = chronic_weekly_km >= 1 ? Math.round((acute_km / chronic_weekly_km) * 100) / 100 : null;
+
+  let label = null;
+  if (acwr != null) {
+    if (acwr > 1.5) label = 'riesgo elevado';
+    else if (acwr > 1.3) label = 'carga alta';
+    else if (acwr < 0.8) label = 'subcarga';
+    else label = 'zona segura';
+  }
+
+  return { acute_km, chronic_weekly_km, acwr, label, recent };
+}
+
+/**
  * Deterministic, grounded analysis built purely from the real metrics. Used as
  * the answer when the LLM is disabled or its output fails validation, and as
  * the source of authoritative numbers when the LLM is used.
  */
 // Arma un análisis completo solo con tus números, sin IA. Se usa cuando no hay OpenAI o cuando la respuesta del modelo no pasa la validación.
-export function fallbackAnalysis(metrics) {
+export function fallbackAnalysis(metrics, training = null) {
   const km = metrics.distance_km;
   const band = paceBand(metrics.pace_s_per_km);
 
@@ -72,6 +122,7 @@ export function fallbackAnalysis(metrics) {
   if (metrics.pace_label) strengths.push(`Mantuviste un ritmo ${band} (${metrics.pace_label}).`);
   if (metrics.deviations === 0) strengths.push('No te desviaste de la ruta: buen foco.');
 
+  if (training?.label === 'riesgo elevado') improvements.push(`Esta semana llevás ${training.acute_km} km contra un promedio de ${training.chronic_weekly_km}: bajá un cambio para no lesionarte.`);
   if (metrics.avg_hr == null) improvements.push('Usá un pulsómetro para medir el esfuerzo real.');
   if (metrics.deviations > 2) improvements.push('Te desviaste varias veces; anticipá los giros.');
   if (km != null && km < 5) improvements.push('Sumá volumen de a poco para construir base aeróbica.');
@@ -111,14 +162,16 @@ export function fallbackAnalysis(metrics) {
 }
 
 // Arma las instrucciones para el modelo, pidiéndole que devuelva un JSON con un formato fijo.
-function buildAnalysisMessages(metrics) {
+function buildAnalysisMessages(metrics, training = null) {
   const system =
     'Sos FitNow Coach, un entrenador de running. Analizá la corrida del usuario y ' +
     'respondé SOLO con un objeto JSON con estas claves exactas: headline (string), ' +
     'summary (string), pace_assessment (string), strengths (array de 1 a 4 strings), ' +
     'improvements (array de 1 a 4 strings), recommendation (string), next_run ' +
     '(objeto con distance_km number y focus string). Español, motivador y concreto. ' +
-    'No inventes números: usá solo los datos provistos.';
+    'No inventes números: usá solo los datos provistos. Si viene el historial y la ' +
+    'carga de entrenamiento, tenelos en cuenta para la recomendación y la próxima ' +
+    'corrida (un ACWR mayor a 1.5 indica que la carga semanal subió demasiado rápido).';
 
   const data = {
     distancia_km: metrics.distance_km,
@@ -128,6 +181,16 @@ function buildAnalysisMessages(metrics) {
     desvios:      metrics.deviations,
     desnivel_m:   metrics.elev_gain_m,
   };
+
+  if (training) {
+    data.historial = {
+      ultimas_corridas: training.recent,
+      km_ultimos_7_dias: training.acute_km,
+      km_semanales_promedio_28_dias: training.chronic_weekly_km,
+      acwr: training.acwr,
+      carga: training.label,
+    };
+  }
 
   return [
     { role: 'system', content: system },
@@ -141,29 +204,30 @@ function buildAnalysisMessages(metrics) {
  * fallback was used (no key, upstream error, or output that failed validation).
  */
 // El corazón del análisis: calcula tus métricas, le pide el texto a la IA, valida que venga con el formato correcto y, si no, usa el análisis calculado. Los números siempre son los tuyos.
-export async function analyzeRun(session) {
+export async function analyzeRun(session, history = []) {
   const metrics = computeRunMetrics(session);
-  const grounded = fallbackAnalysis(metrics);
+  const training = computeTrainingContext(history);
+  const grounded = fallbackAnalysis(metrics, training);
 
   if (!isAiEnabled()) {
-    return { ...grounded, ai_mode: 'stub', model: null };
+    return { ...grounded, training_load: training, ai_mode: 'stub', model: null };
   }
 
   let res;
   try {
-    res = await chatJSON({ messages: buildAnalysisMessages(metrics), jsonMode: true, temperature: 0.5, maxTokens: 600 });
+    res = await chatJSON({ messages: buildAnalysisMessages(metrics, training), jsonMode: true, temperature: 0.5, maxTokens: 600 });
   } catch {
-    return { ...grounded, ai_mode: 'stub', model: null };
+    return { ...grounded, training_load: training, ai_mode: 'stub', model: null };
   }
 
   if (!res || !res.ok) {
-    return { ...grounded, ai_mode: 'stub', model: null };
+    return { ...grounded, training_load: training, ai_mode: 'stub', model: null };
   }
 
   // FILTER: the model's output is only accepted if it matches the schema.
   const valid = validateRunAnalysis(res.data);
   if (!valid) {
-    return { ...grounded, ai_mode: 'stub', model: getModel() };
+    return { ...grounded, training_load: training, ai_mode: 'stub', model: getModel() };
   }
 
   // GROUNDING: keep the model's narrative, but the numbers stay ours.
@@ -171,6 +235,7 @@ export async function analyzeRun(session) {
     ...valid,
     next_run: { distance_km: metrics.distance_km ? Math.max(2, Math.round(metrics.distance_km)) : valid.next_run.distance_km, focus: valid.next_run.focus },
     metrics,
+    training_load: training,
     ai_mode: 'real',
     model: getModel(),
   };

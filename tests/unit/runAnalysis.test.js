@@ -8,7 +8,7 @@ vi.mock('../../src/utils/openai.js', () => ({
 }));
 
 import { isAiEnabled, chatJSON } from '../../src/utils/openai.js';
-import { computeRunMetrics, fallbackAnalysis, analyzeRun } from '../../src/services/runAnalysis.service.js';
+import { computeRunMetrics, fallbackAnalysis, analyzeRun, computeTrainingContext } from '../../src/services/runAnalysis.service.js';
 import { runAnalysisSchema } from '../../src/utils/aiGuardrails.js';
 
 const SESSION = {
@@ -77,5 +77,53 @@ describe('analyzeRun', () => {
     chatJSON.mockRejectedValue(new Error('network'));
     const a = await analyzeRun(SESSION);
     expect(a.ai_mode).toBe('stub');
+  });
+});
+
+describe('computeTrainingContext (ACWR)', () => {
+  const daysAgo = (n) => new Date(Date.now() - n * 86400000).toISOString();
+
+  it('sin historial devuelve null', () => {
+    expect(computeTrainingContext([])).toBe(null);
+    expect(computeTrainingContext([{ distance_m: 5000 }])).toBe(null); // sin finished_at
+  });
+
+  it('carga pareja queda en zona segura con ACWR cercano a 1', () => {
+    // 5 km por semana durante 4 semanas
+    const sessions = [3, 10, 17, 24].map((d) => ({ distance_m: 5000, finished_at: daysAgo(d) }));
+    const t = computeTrainingContext(sessions);
+    expect(t.acute_km).toBe(5);
+    expect(t.chronic_weekly_km).toBe(5);
+    expect(t.acwr).toBe(1);
+    expect(t.label).toBe('zona segura');
+  });
+
+  it('un pico de volumen semanal dispara riesgo elevado y aparece en el análisis', () => {
+    const sessions = [
+      { distance_m: 15000, finished_at: daysAgo(1), avg_pace_s: 360 },
+      { distance_m: 12000, finished_at: daysAgo(3) },
+      { distance_m: 3000,  finished_at: daysAgo(15) },
+      { distance_m: 3000,  finished_at: daysAgo(22) },
+    ];
+    const t = computeTrainingContext(sessions);
+    expect(t.acwr).toBeGreaterThan(1.5);
+    expect(t.label).toBe('riesgo elevado');
+    expect(t.recent[0].ritmo).toBe('6:00/km');
+
+    const a = fallbackAnalysis(computeRunMetrics(SESSION), t);
+    expect(a.improvements.join(' ')).toContain('lesion');
+  });
+
+  it('las corridas de hace más de 28 días no cuentan', () => {
+    const t = computeTrainingContext([{ distance_m: 40000, finished_at: daysAgo(40) }]);
+    expect(t).toBe(null);
+  });
+
+  it('analyzeRun incluye la carga de entrenamiento en la respuesta', async () => {
+    isAiEnabled.mockReturnValue(false);
+    const history = [{ distance_m: 5000, finished_at: daysAgo(2) }];
+    const a = await analyzeRun(SESSION, history);
+    expect(a.training_load).not.toBe(null);
+    expect(a.training_load.acute_km).toBe(5);
   });
 });

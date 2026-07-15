@@ -3,6 +3,7 @@ import logger from '../utils/logger.js';
 import { chatStream, getModel, isAiEnabled } from '../utils/openai.js';
 import * as aiRepo from '../repositories/ai.repository.js';
 import * as runService from '../services/run.service.js';
+import * as runRepo from '../repositories/run.repository.js';
 import { analyzeRun } from '../services/runAnalysis.service.js';
 import { screenCoachMessage } from '../utils/aiGuardrails.js';
 
@@ -169,7 +170,9 @@ export async function runAnalysis(req, res, next) {
     // getSession enforces ownership and 404s on a missing session, so the
     // analysis is always grounded on the caller's real, finished run.
     const session  = await runService.getSession(Number(req.body.session_id), req.user.id);
-    const analysis = await analyzeRun(session);
+    // El historial reciente alimenta la carga de entrenamiento (ACWR); si falla, se analiza sin él.
+    const history  = await runRepo.findSessionsByUser(req.user.id, { limit: 30 }).catch(() => []);
+    const analysis = await analyzeRun(session, history);
     await aiRepo.logUsage({ userId: req.user.id, endpoint: 'run-analysis', model: getModel(), usage: null, status: analysis.ai_mode }).catch(() => {});
     res.json(analysis);
   } catch (err) { next(err); }
