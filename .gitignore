@@ -55,3 +55,6 @@ Train_FitNow*.ipynb
 ai_routes_*.csv
 ai_weights_*.json
 route_score_*.pkl
+
+# volcados de carteras del banco (reproducibles con bench/dump-portfolios.js, pesan decenas de MB)
+bench/portfolios-*.jsonl
