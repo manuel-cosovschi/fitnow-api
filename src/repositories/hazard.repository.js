@@ -15,6 +15,9 @@ export async function findNear({ lat, lng, radius_m = 500, type } = {}) {
   const deg   = radiusToDeg(radius_m);
   const where = [
     `h.status = 'active'`,
+    // Ignora reportes vencidos, igual que el evaluador de rutas (así el aviso
+    // en la app y el mapa no muestran zonas que ya expiraron).
+    `(h.expires_at IS NULL OR h.expires_at > NOW())`,
     `h.lat BETWEEN ? AND ?`,
     `h.lng BETWEEN ? AND ?`,
   ];
