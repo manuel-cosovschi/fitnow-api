@@ -13,5 +13,6 @@ router.get  ('/near',      requireAuth, validateQuery(nearQuerySchema),       ct
 router.post ('/:id/vote',  requireAuth,                                       ctrl.vote);
 router.patch('/:id/status', requireAuth, requireRole('admin'), validateBody(updateStatusSchema), ctrl.updateStatus);
 router.get  ('/', requireAuth, requireRole('admin'),                          ctrl.listAll);
+router.post ('/ingest-news', requireAuth, requireRole('admin'),               ctrl.ingestFromNews);
 
 export default router;

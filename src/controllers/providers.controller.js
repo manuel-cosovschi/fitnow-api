@@ -75,3 +75,36 @@ export async function getSports(req, res, next) {
     res.json({ items });
   } catch (err) { next(err); }
 }
+
+// ─── Saldo y retiros del proveedor ───────────────────────────────────────────
+import * as finance from '../services/providerFinance.service.js';
+
+// Devuelve el saldo del proveedor logueado.
+export async function myBalance(req, res, next) {
+  try { res.json(await finance.getBalance(req.user.id)); } catch (err) { next(err); }
+}
+
+// Movimientos (créditos por pagos confirmados).
+export async function myLedger(req, res, next) {
+  try { res.json(await finance.listLedger(req.user.id, { limit: Number(req.query.limit) || 30 })); } catch (err) { next(err); }
+}
+
+// Pide un retiro del saldo disponible.
+export async function requestWithdrawal(req, res, next) {
+  try { res.status(201).json(await finance.requestWithdrawal(req.user.id, req.body)); } catch (err) { next(err); }
+}
+
+// Lista tus retiros.
+export async function myWithdrawals(req, res, next) {
+  try { res.json(await finance.listMyWithdrawals(req.user.id)); } catch (err) { next(err); }
+}
+
+// Admin: solicitudes de retiro de todos los proveedores.
+export async function allWithdrawals(req, res, next) {
+  try { res.json(await finance.listAllWithdrawals({ status: req.query.status || 'pending' })); } catch (err) { next(err); }
+}
+
+// Admin: marca un retiro como pagado o rechazado.
+export async function resolveWithdrawal(req, res, next) {
+  try { res.json(await finance.resolveWithdrawal(Number(req.params.id), req.body)); } catch (err) { next(err); }
+}

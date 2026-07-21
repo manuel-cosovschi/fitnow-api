@@ -4,6 +4,7 @@ import { query, queryOne, transaction } from '../db.js';
 import { Errors } from '../utils/errors.js';
 import logger from '../utils/logger.js';
 import { awardXp } from '../utils/xp.js';
+import { creditEnrollment } from './providerFinance.service.js';
 
 const BASE_URL = () => process.env.APP_BASE_URL || 'https://api.fitnow.com';
 const DEEP_LINK = () => process.env.IOS_DEEP_LINK_SCHEME || 'fitnow';
@@ -233,7 +234,10 @@ async function activateEnrollment(enrollmentId, gateway, gatewayRef) {
   // Duplicate webhook — skip side-effects entirely
   if (!enrollment) return;
 
-  // Post-commit side-effects: XP award and in-app notification.
+  // Post-commit side-effects: provider credit, XP award and in-app notification.
+  // Le acredita al proveedor su parte del cobro (idempotente por inscripción).
+  await creditEnrollment(enrollmentId);
+
   // Running outside the transaction shortens the lock window; these operations
   // are safe to re-attempt if the process crashes here (they are append-only).
   await awardXp(enrollment.user_id, 50, 'enrollment', { ref_type: 'enrollment', ref_id: enrollmentId });

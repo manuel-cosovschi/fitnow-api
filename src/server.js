@@ -19,6 +19,7 @@ validateEnv();
 import app from './app.js';
 import { pool } from './db.js';
 import { runMigrations } from './migrate.js';
+import { scheduleNewsIngest } from './services/newsIngest.service.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -56,6 +57,9 @@ async function bootstrap() {
       logger.info(`Acceso LAN: http://${ip}:${PORT}`);
       if (PUBLIC_BASE_URL) logger.info(`Público: ${PUBLIC_BASE_URL}`);
     });
+
+    // Ingesta diaria de reportes desde la prensa local (si está habilitada).
+    scheduleNewsIngest();
 
     server.on('error', (err) => logger.error('Server error:', err));
 

@@ -697,3 +697,35 @@ ALTER TABLE ai_weights ADD COLUMN IF NOT EXISTS w_dist_fid   DECIMAL(6,4) NOT NU
 ALTER TABLE ai_weights ADD COLUMN IF NOT EXISTS w_hazard_exp DECIMAL(6,4) NOT NULL DEFAULT 0.3500;
 ALTER TABLE ai_weights ADD COLUMN IF NOT EXISTS w_turns      DECIMAL(6,4) NOT NULL DEFAULT 0.2000;
 ALTER TABLE ai_weights ADD COLUMN IF NOT EXISTS w_hist DECIMAL(6,4) NOT NULL DEFAULT 0.1000;
+
+-- Fuente de los reportes: usuario (default) o prensa (ingesta de noticias)
+ALTER TABLE hazards ADD COLUMN IF NOT EXISTS source VARCHAR(20) NOT NULL DEFAULT 'usuario';
+ALTER TABLE hazards ADD COLUMN IF NOT EXISTS source_url TEXT;
+
+-- Libro de saldos por proveedor: cada pago confirmado acredita su parte
+CREATE TABLE IF NOT EXISTS provider_ledger (
+  id            SERIAL PRIMARY KEY,
+  provider_id   INT NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
+  enrollment_id INT REFERENCES enrollments(id) ON DELETE SET NULL,
+  gross_amount  DECIMAL(12,2) NOT NULL,
+  commission    DECIMAL(12,2) NOT NULL,
+  amount        DECIMAL(12,2) NOT NULL,
+  description   TEXT,
+  created_at    TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_pledger_provider ON provider_ledger(provider_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_pledger_enrollment ON provider_ledger(enrollment_id);
+
+-- Solicitudes de retiro del saldo del proveedor
+CREATE TABLE IF NOT EXISTS withdrawal_requests (
+  id           SERIAL PRIMARY KEY,
+  provider_id  INT NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
+  amount       DECIMAL(12,2) NOT NULL,
+  cbu_alias    VARCHAR(120) NOT NULL,
+  status       VARCHAR(20) NOT NULL DEFAULT 'pending'
+                 CHECK (status IN ('pending','paid','rejected')),
+  admin_note   TEXT,
+  requested_at TIMESTAMPTZ DEFAULT NOW(),
+  resolved_at  TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_wreq_provider ON withdrawal_requests(provider_id);

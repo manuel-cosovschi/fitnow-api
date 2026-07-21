@@ -36,3 +36,9 @@ export async function listAll(req, res, next) {
     res.json(await hazardService.listAll(req.query));
   } catch (err) { next(err); }
 }
+
+// Corre la ingesta de reportes desde la prensa local (solo admin).
+import { ingestNews } from '../services/newsIngest.service.js';
+export async function ingestFromNews(req, res, next) {
+  try { res.json(await ingestNews({ maxCreates: Number(req.body?.max) || 10 })); } catch (err) { next(err); }
+}

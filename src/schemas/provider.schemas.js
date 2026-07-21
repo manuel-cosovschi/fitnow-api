@@ -31,3 +31,14 @@ export const addServiceSchema = z.object({
   sport_id:    z.coerce.number().int().positive('sport_id es requerido.'),
   description: z.string().trim().max(500).optional().nullable(),
 });
+
+// Retiros del saldo del proveedor
+export const withdrawalSchema = z.object({
+  amount:    z.coerce.number().positive('El monto debe ser mayor a cero.'),
+  cbu_alias: z.string().trim().min(6, 'CBU o alias inválido.').max(120),
+});
+
+export const resolveWithdrawalSchema = z.object({
+  status:     z.enum(['paid', 'rejected']),
+  admin_note: z.string().trim().max(300).optional().nullable(),
+});
