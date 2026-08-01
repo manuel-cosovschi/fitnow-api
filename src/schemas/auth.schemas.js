@@ -17,6 +17,12 @@ export const updateMeSchema = z.object({
   email: z.string().trim().email('Email inválido.').max(255).optional(),
   phone: z.string().trim().max(30).optional().nullable(),
   bio:   z.string().trim().max(500).optional().nullable(),
+  // Perfil declarado en el onboarding. El nivel define la dificultad por defecto
+  // de los planes y los objetivos se incorporan al pedido que se le hace al
+  // modelo, de modo que el plan responda a lo que el usuario busca.
+  fitness_level: z.enum(['beginner', 'intermediate', 'advanced', 'elite']).optional().nullable(),
+  fitness_goals: z.array(z.string().trim().max(40)).max(8).optional().nullable()
+    .transform((v) => (Array.isArray(v) ? v.join(',') : v)),
 }).strict();
 
 export const changePasswordSchema = z.object({
