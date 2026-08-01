@@ -104,10 +104,23 @@ export async function listActive(userId) {
 }
 
 // Arma un plan nuevo.
+const NIVEL_A_DIFICULTAD = { beginner: 'baja', intermediate: 'media', advanced: 'alta', elite: 'alta' };
+const ETIQUETA_NIVEL = { beginner: 'principiante', intermediate: 'intermedio', advanced: 'avanzado', elite: 'elite' };
+
 export async function generate(userId, { goal, duration_weeks, difficulty }) {
   if (!goal) throw Errors.badRequest('goal es requerido.');
 
   const weeks = duration_weeks ?? 4;
+
+  // Perfil declarado en el onboarding: el nivel define la dificultad cuando el
+  // usuario no la eligio explicitamente, y los objetivos dan contexto al modelo.
+  const perfil = await queryOne(
+    `SELECT fitness_level, fitness_goals FROM users WHERE id = ?`, [userId]
+  ).catch(() => null);
+  const nivel = perfil?.fitness_level ?? null;
+  const objetivos = (perfil?.fitness_goals ?? '').split(',').map(s => s.trim()).filter(Boolean);
+  const dificultad = difficulty ?? NIVEL_A_DIFICULTAD[nivel] ?? 'media';
+
   const aiResult = await callOpenAI([
     { role: 'system', content:
       'Sos un entrenador profesional. Devolves un plan de entrenamiento en JSON. ' +
@@ -122,16 +135,19 @@ export async function generate(userId, { goal, duration_weeks, difficulty }) {
       'duration_min: number, distance_km?: number, intensity: "baja"|"media"|"alta", ' +
       'exercises: [ { name, sets?, reps?, weight_suggestion? } ] } ] } ] }' },
     { role: 'user', content:
-      `Objetivo: ${goal}. Duracion: ${weeks} semanas. Dificultad: ${difficulty ?? 'media'}. ` +
+      `Objetivo: ${goal}. Duracion: ${weeks} semanas. Dificultad: ${dificultad}. ` +
+      (nivel ? `Nivel declarado del usuario: ${ETIQUETA_NIVEL[nivel] ?? nivel}. ` : '') +
+      (objetivos.length ? `Ademas busca: ${objetivos.join(', ')}. ` : '') +
+      `Ajusta el volumen y las cargas a ese nivel. ` +
       `Devolve exactamente ${weeks} semanas, cada una con 7 dias.` },
   ], weeks);
 
-  const planData = aiResult ?? stubPlanData({ goal, duration_weeks, difficulty });
+  const planData = aiResult ?? stubPlanData({ goal, duration_weeks, difficulty: dificultad });
   const title = planData.title || `Plan ${goal}`;
 
   const result = await query(
     `INSERT INTO training_plans (user_id, title, goal, duration_weeks, difficulty, plan_data) VALUES (?,?,?,?,?,?)`,
-    [userId, title, goal, duration_weeks ?? 4, difficulty ?? 'media', JSON.stringify(planData)]
+    [userId, title, goal, duration_weeks ?? 4, dificultad, JSON.stringify(planData)]
   );
   return deserializePlan(await queryOne(`SELECT * FROM training_plans WHERE id = ?`, [result.insertId]));
 }
