@@ -3,7 +3,7 @@ import { query, queryOne } from '../db.js';
 import { Errors } from '../utils/errors.js';
 import logger from '../utils/logger.js';
 
-async function callOpenAI(messages) {
+async function callOpenAI(messages, weeks = 4) {
   const key   = process.env.OPENAI_API_KEY;
   const model = process.env.OPENAI_MODEL || 'gpt-4o';
   if (!key) return null;
@@ -12,13 +12,17 @@ async function callOpenAI(messages) {
     // llamador cae al plan determinista (stubPlanData). Tiene que ser holgadamente
     // menor que el timeout del cliente para que el usuario reciba una respuesta
     // util en lugar de un error de red.
-    const timeoutMs = parseInt(process.env.OPENAI_PLAN_TIMEOUT_MS, 10) || 25000;
+    const timeoutMs = parseInt(process.env.OPENAI_PLAN_TIMEOUT_MS, 10) || 35000;
     const resp = await fetch('https://api.openai.com/v1/chat/completions', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
       body: JSON.stringify({
         model, messages, temperature: 0.7,
-        max_tokens: parseInt(process.env.OPENAI_PLAN_MAX_TOKENS, 10) || 4096,
+        // El tamano de la respuesta crece con la cantidad de semanas: un plan de
+        // 8 semanas son 56 dias con sus ejercicios. Con un tope fijo y bajo el
+        // JSON se truncaba, fallaba el parseo y el usuario recibia el plan
+        // generico en lugar del suyo.
+        max_tokens: Math.min(16000, 1500 + (weeks * 1100)),
         response_format: { type: 'json_object' },
       }),
       signal: AbortSignal.timeout(timeoutMs),
@@ -32,13 +36,29 @@ async function callOpenAI(messages) {
   }
 }
 
+// Detecta si el objetivo apunta a fuerza/hipertrofia para que el plan de respaldo
+// no proponga un bloque de running cuando el usuario pidio levantar peso.
+function esObjetivoDeFuerza(goal = '') {
+  return /fuerza|hipertrof|m[uú]sculo|masa|press|banca|sentadilla|peso muerto|dominad|kg|kilos?\b/i
+    .test(goal);
+}
+
 function stubPlanData({ goal, duration_weeks, difficulty }) {
+  const fuerza = esObjetivoDeFuerza(goal);
   const weeks = [];
   for (let w = 1; w <= (duration_weeks ?? 4); w++) {
     weeks.push({
       week:  w,
       focus: w <= 2 ? 'Adaptación' : 'Progresión',
-      days: [
+      days: fuerza ? [
+        { day: 1, type: 'strength', title: 'Empuje: pecho y hombro', description: 'Press de banca como movimiento principal', duration_min: 60, intensity: 'media', exercises: [{ name: 'Press de banca', sets: 5, reps: 5, weight_suggestion: 'Progresar 2,5 kg por semana' }, { name: 'Press militar', sets: 3, reps: 8 }, { name: 'Fondos', sets: 3, reps: 10 }] },
+        { day: 2, type: 'strength', title: 'Tirón: espalda y bíceps', description: 'Trabajo de tracción para equilibrar el empuje', duration_min: 55, intensity: 'media', exercises: [{ name: 'Remo con barra', sets: 4, reps: 8 }, { name: 'Dominadas', sets: 4, reps: 8 }, { name: 'Curl de bíceps', sets: 3, reps: 12 }] },
+        { day: 3, type: 'rest',     title: 'Descanso activo',  description: 'Movilidad de hombro y caminata suave', duration_min: 30, intensity: 'baja', exercises: [] },
+        { day: 4, type: 'strength', title: 'Tren inferior',    description: 'Base de fuerza general', duration_min: 60, intensity: 'alta', exercises: [{ name: 'Sentadilla', sets: 5, reps: 5 }, { name: 'Peso muerto', sets: 3, reps: 5 }, { name: 'Zancadas', sets: 3, reps: 12 }] },
+        { day: 5, type: 'strength', title: 'Empuje accesorio', description: 'Volumen complementario de press', duration_min: 50, intensity: 'media', exercises: [{ name: 'Press inclinado', sets: 4, reps: 8 }, { name: 'Press con mancuernas', sets: 3, reps: 10 }, { name: 'Tríceps en polea', sets: 3, reps: 12 }] },
+        { day: 6, type: 'cardio',   title: 'Cardio suave',     description: 'Trabajo aeróbico liviano para recuperar', duration_min: 30, distance_km: 4, intensity: 'baja', exercises: [] },
+        { day: 7, type: 'rest',     title: 'Descanso',         description: 'Recuperación completa', duration_min: 0, intensity: 'baja', exercises: [] },
+      ] : [
         { day: 1, type: 'cardio',   title: 'Carrera suave',    description: 'Trote a ritmo cómodo', duration_min: 30, distance_km: 4, intensity: 'baja',  exercises: [] },
         { day: 2, type: 'strength', title: 'Fuerza tren sup.', description: 'Press, dominadas, remo', duration_min: 45, intensity: 'media', exercises: [{ name: 'Press de banca', sets: 3, reps: 12 }, { name: 'Dominadas', sets: 3, reps: 8 }] },
         { day: 3, type: 'rest',     title: 'Descanso activo',  description: 'Caminata o yoga', duration_min: 30, intensity: 'baja', exercises: [] },
@@ -87,10 +107,24 @@ export async function listActive(userId) {
 export async function generate(userId, { goal, duration_weeks, difficulty }) {
   if (!goal) throw Errors.badRequest('goal es requerido.');
 
+  const weeks = duration_weeks ?? 4;
   const aiResult = await callOpenAI([
-    { role: 'system', content: 'You are a professional running/fitness coach. Generate a weekly training plan as JSON with: title, summary, tips (array of strings), weeks (array). Each week: week (number), focus, days (array). Each day: day (number 1-7), type (cardio/strength/rest/long_run), title, description, duration_min, distance_km (optional), intensity (baja/media/alta), exercises (array, each: name, sets?, reps?, weight_suggestion?).' },
-    { role: 'user',   content: `Goal: ${goal}. Duration: ${duration_weeks ?? 4} weeks. Difficulty: ${difficulty ?? 'media'}.` },
-  ]);
+    { role: 'system', content:
+      'Sos un entrenador profesional. Devolves un plan de entrenamiento en JSON. ' +
+      'ESCRIBI TODOS LOS TEXTOS EN ESPANIOL RIOPLATENSE. ' +
+      'El plan tiene que responder al objetivo concreto del usuario: si el objetivo es de ' +
+      'fuerza o hipertrofia, el plan debe girar alrededor del trabajo con cargas y su ' +
+      'progresion; si es de resistencia o carrera, alrededor del volumen y las series. ' +
+      'No propongas un plan generico de running cuando el objetivo no lo sea. ' +
+      'Las semanas deben progresar entre si, no repetirse. ' +
+      'Estructura: { title, summary, tips: [string], weeks: [ { week: number, focus: string, ' +
+      'days: [ { day: 1-7, type: "cardio"|"strength"|"rest"|"long_run", title, description, ' +
+      'duration_min: number, distance_km?: number, intensity: "baja"|"media"|"alta", ' +
+      'exercises: [ { name, sets?, reps?, weight_suggestion? } ] } ] } ] }' },
+    { role: 'user', content:
+      `Objetivo: ${goal}. Duracion: ${weeks} semanas. Dificultad: ${difficulty ?? 'media'}. ` +
+      `Devolve exactamente ${weeks} semanas, cada una con 7 dias.` },
+  ], weeks);
 
   const planData = aiResult ?? stubPlanData({ goal, duration_weeks, difficulty });
   const title = planData.title || `Plan ${goal}`;
