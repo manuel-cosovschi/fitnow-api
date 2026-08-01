@@ -8,15 +8,28 @@ async function callOpenAI(messages) {
   const model = process.env.OPENAI_MODEL || 'gpt-4o';
   if (!key) return null;
   try {
+    // Timeout propio: si el modelo tarda mas que esto devolvemos null y el
+    // llamador cae al plan determinista (stubPlanData). Tiene que ser holgadamente
+    // menor que el timeout del cliente para que el usuario reciba una respuesta
+    // util en lugar de un error de red.
+    const timeoutMs = parseInt(process.env.OPENAI_PLAN_TIMEOUT_MS, 10) || 25000;
     const resp = await fetch('https://api.openai.com/v1/chat/completions', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ model, messages, temperature: 0.7, response_format: { type: 'json_object' } }),
+      body: JSON.stringify({
+        model, messages, temperature: 0.7,
+        max_tokens: parseInt(process.env.OPENAI_PLAN_MAX_TOKENS, 10) || 4096,
+        response_format: { type: 'json_object' },
+      }),
+      signal: AbortSignal.timeout(timeoutMs),
     });
-    if (!resp.ok) return null;
+    if (!resp.ok) { logger.warn(`training-plans: OpenAI respondio ${resp.status}, se usa el plan determinista`); return null; }
     const data = await resp.json();
     return JSON.parse(data.choices[0].message.content);
-  } catch { return null; }
+  } catch (err) {
+    logger.warn(`training-plans: fallo la generacion con IA (${err.name}), se usa el plan determinista`);
+    return null;
+  }
 }
 
 function stubPlanData({ goal, duration_weeks, difficulty }) {
