@@ -15,10 +15,14 @@
 import { haversineM } from '../utils/geo.js';
 
 // Pesos por defecto del score (se pisan con los de ai_weights si existen).
+// Son los que salieron del barrido de calibración (bench/weight-sweep.js,
+// punto "produccion") y los mismos que trae ai_weights por defecto en
+// sql/schema.sql, para que el fallback del código no se aparte de la
+// configuración calibrada.
 export const DEFAULT_PLANNER_WEIGHTS = {
-  w_dist_fid:   0.40,
+  w_dist_fid:   0.45,
   w_hazard_exp: 0.35,
-  w_turns:      0.15,
+  w_turns:      0.20,
   w_hist:       0.10,
 };
 
