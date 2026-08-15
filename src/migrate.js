@@ -12,10 +12,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SQL_DIR   = path.join(__dirname, '..', 'sql');
 
 // Order matters:
-//   schema.sql      → base tables + alters
-//   ai-extras.sql   → AI persistence tables (must run after schema; references users)
-//   seed.sql        → initial data (must run last)
-const FILES = ['schema.sql', 'ai-extras.sql', 'seed.sql'];
+//   schema.sql        → base tables + alters
+//   ai-extras.sql     → AI persistence tables (must run after schema; references users)
+//   subscriptions.sql → planes free/premium (references users)
+//   seed.sql          → initial data (must run last)
+const FILES = ['schema.sql', 'ai-extras.sql', 'subscriptions.sql', 'seed.sql'];
 
 // Códigos de error PostgreSQL ignorables (idempotencia):
 //   42P07 = duplicate_table, 42701 = duplicate_column,

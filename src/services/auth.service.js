@@ -264,3 +264,53 @@ export async function changePassword(userId, { current_password, new_password })
 
   await userRepo.updatePassword(userId, await bcrypt.hash(new_password, SALT_ROUNDS));
 }
+
+/**
+ * Borra la cuenta del usuario (App Store 5.1.1(v): tiene que poder hacerse
+ * desde la app, sin escribir a soporte).
+ *
+ * Es un borrado lógico con anonimización: las inscripciones pagadas y el
+ * historial contable del proveedor tienen que sobrevivir por obligación fiscal,
+ * así que se corta el vínculo con la persona en vez de destruir las filas.
+ * Los datos personales, las sesiones abiertas y los tokens de push sí se van.
+ */
+export async function deleteAccount(userId) {
+  const user = await userRepo.findById(userId);
+  if (!user) throw Errors.notFound('Usuario no encontrado.');
+
+  // Un proveedor con actividades publicadas no puede borrarse solo: primero
+  // hay que dar de baja el negocio, si no quedan inscripciones huérfanas.
+  if (user.provider_id) {
+    throw Errors.conflict(
+      'PROVIDER_ACCOUNT',
+      'Las cuentas de proveedor se dan de baja desde el panel, después de cerrar las actividades publicadas.'
+    );
+  }
+
+  const anonEmail = `deleted+${userId}@fitnow.invalid`;
+
+  await query(
+    `UPDATE users
+        SET deleted_at    = NOW(),
+            email         = ?,
+            name          = 'Cuenta eliminada',
+            password_hash = NULL,
+            phone         = NULL,
+            bio           = NULL,
+            photo_url     = NULL,
+            apple_sub     = NULL,
+            google_sub    = NULL,
+            updated_at    = NOW()
+      WHERE id = ?`,
+    [anonEmail, userId]
+  );
+
+  // Cortar el acceso: refresh tokens, push y cualquier código pendiente.
+  await query(`DELETE FROM refresh_tokens           WHERE user_id = ?`, [userId]);
+  await query(`DELETE FROM push_tokens              WHERE user_id = ?`, [userId]);
+  await query(`DELETE FROM password_reset_tokens    WHERE user_id = ?`, [userId]);
+  await query(`DELETE FROM two_factor_codes         WHERE user_id = ?`, [userId]);
+  await query(`DELETE FROM coach_conversations      WHERE user_id = ?`, [userId]);
+
+  return { deleted: true };
+}

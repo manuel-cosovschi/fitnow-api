@@ -4,6 +4,17 @@ import * as aiRepo  from '../repositories/ai.repository.js';
 import { parsePagination, paginatedResponse } from '../utils/paginate.js';
 import { normalize } from '../utils/geo.js';
 import { Errors } from '../utils/errors.js';
+import { capTelemetryToLimit, limitStatus } from '../utils/runLimit.js';
+import { planLimits } from '../config/plans.js';
+
+/**
+ * Tope de distancia que le corresponde a un entitlement. Sin entitlement se
+ * asume free: es el lado seguro si alguien llama al servicio sin resolverlo.
+ */
+function distanceLimitFor(entitlement) {
+  const limits = entitlement ?? planLimits('free');
+  return limits.run_max_distance_m ?? null;
+}
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 
@@ -120,7 +131,10 @@ export async function getSession(sessionId, userId) {
 }
 
 // Guarda los puntos de GPS que la app manda mientras corrés.
-export async function pushTelemetry(sessionId, userId, points) {
+// En el plan free la sesión se corta al llegar al tope de distancia: los puntos
+// que pasan de ahí no se guardan y la respuesta avisa para que la app muestre
+// el paywall en vez de seguir grabando.
+export async function pushTelemetry(sessionId, userId, points, entitlement = null) {
   const session = await runRepo.findSessionById(sessionId);
   if (!session) throw Errors.notFound('Sesión no encontrada.');
   if (session.user_id !== userId) throw Errors.forbidden('No podés actualizar esta sesión.');
@@ -141,31 +155,69 @@ export async function pushTelemetry(sessionId, userId, points) {
     accuracy_m:  p.accuracy_m ?? null,
   }));
 
-  await runRepo.insertTelemetryPoints(sessionId, mapped);
-  return { saved: points.length };
+  const limitM = distanceLimitFor(entitlement);
+  const lastPoint = await runRepo.findLastTelemetryPoint(sessionId);
+
+  const { accepted, distanceM, reached } = capTelemetryToLimit({
+    lastPoint,
+    distanceSoFarM: session.live_distance_m ?? 0,
+    points: mapped,
+    limitM,
+  });
+
+  if (accepted.length) await runRepo.insertTelemetryPoints(sessionId, accepted);
+  await runRepo.updateSessionProgress(sessionId, {
+    live_distance_m: distanceM,
+    limited_by_plan: reached && limitM != null ? true : null,
+  });
+
+  return {
+    saved: accepted.length,
+    limit: limitStatus({ plan: entitlement?.plan ?? 'free', limitM, distanceM, reached }),
+  };
 }
 
 // Cierra la corrida y guarda el resumen: distancia, ritmo, pulso, etc.
-export async function finishSession(sessionId, userId, stats) {
+export async function finishSession(sessionId, userId, stats, entitlement = null) {
   const session = await runRepo.findSessionById(sessionId);
   if (!session) throw Errors.notFound('Sesión no encontrada.');
   if (session.user_id !== userId) throw Errors.forbidden('No podés finalizar esta sesión.');
   if (session.status !== 'active') throw Errors.badRequest('La sesión ya fue finalizada.');
 
+  // La distancia la manda el cliente, así que en el plan free se recorta al
+  // tope: sin esto una app modificada podría guardar corridas de 20 km gratis.
+  const limitM = distanceLimitFor(entitlement);
+  const reportedDistance = stats.distance_m ?? null;
+  const cappedDistance = limitM != null && reportedDistance != null
+    ? Math.min(reportedDistance, limitM)
+    : reportedDistance;
+  const wasLimited = limitM != null &&
+    (session.limited_by_plan || (reportedDistance != null && reportedDistance > limitM));
+
   // Normalize client-friendly field names to repo-aligned names
   const summary = {
     finished_at:     stats.finished_at    ?? new Date().toISOString(),
     duration_s:      stats.duration_s     ?? null,
-    distance_m:      stats.distance_m     ?? null,
+    distance_m:      cappedDistance,
     avg_pace_s:      stats.avg_pace_s     ?? stats.avg_pace ?? null,
     avg_speed_mps:   stats.avg_speed_mps  ?? null,
     avg_hr_bpm:      stats.avg_hr_bpm     ?? null,
     deviates_count:  stats.deviates_count ?? 0,
     max_elevation_m: stats.max_elevation_m ?? null,
     min_elevation_m: stats.min_elevation_m ?? null,
+    limited_by_plan: wasLimited ? true : null,
   };
 
-  return runRepo.finishSession(sessionId, summary);
+  const finished = await runRepo.finishSession(sessionId, summary);
+  return {
+    ...finished,
+    limit: limitStatus({
+      plan: entitlement?.plan ?? 'free',
+      limitM,
+      distanceM: cappedDistance ?? session.live_distance_m ?? 0,
+      reached: wasLimited,
+    }),
+  };
 }
 
 // Marca la corrida como abandonada si saliste sin terminarla.

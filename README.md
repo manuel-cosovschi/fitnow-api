@@ -27,6 +27,7 @@
 - [Integraciones externas](#integraciones-externas)
 - [Referencia de la API](#referencia-de-la-api)
 - [Autenticación y roles](#autenticación-y-roles)
+- [Planes y suscripciones](#planes-y-suscripciones)
 - [Tests](#tests)
 - [Docker](#docker)
 - [Deploy](#deploy)
@@ -217,7 +218,8 @@ Los endpoints de IA tienen un **rate limit propio** (`AI_RATE_LIMIT_MAX`,
 
 ## Referencia de la API
 
-Todas las rutas cuelgan de `/api`. Las marcadas con 🔒 requieren `Authorization: Bearer <token>`.
+Todas las rutas cuelgan de `/api`. Las marcadas con 🔒 requieren `Authorization: Bearer <token>`
+y las marcadas con ⭐ requieren el plan **FitNow+** (ver [Planes y suscripciones](#planes-y-suscripciones)).
 
 ### Auth — `/api/auth`
 | Método | Ruta | Descripción |
@@ -231,10 +233,11 @@ Todas las rutas cuelgan de `/api`. Las marcadas con 🔒 requieren `Authorizatio
 | POST | `/2fa/verify` | Verificar segundo factor |
 | POST | `/forgot-password` · `/reset-password` | Flujo de reset |
 | POST | `/verify-email` | Verificación de email |
-| GET/PATCH 🔒 | `/me` | Perfil propio |
+| GET/PATCH 🔒 | `/me` | Perfil propio (incluye el `entitlement` del usuario) |
+| DELETE 🔒 | `/me` | Borrado de cuenta |
 
 ### Cuenta — `/api/account` 🔒
-`GET /me`, `PUT /me`
+`GET /me`, `PUT /me`, `DELETE /me` (borrado de cuenta — requisito de App Store 5.1.1(v))
 
 ### Actividades — `/api/activities`
 `GET /`, `GET /:id`, `GET /:id/reviews`, `GET /:id/posts` · 🔒 `POST /`, `PATCH /:id`,
@@ -256,14 +259,26 @@ Todas las rutas cuelgan de `/api`. Las marcadas con 🔒 requieren `Authorizatio
 `POST /sessions/:id/finish`, `POST /sessions/:id/abandon`
 
 ### Gym — `/api/gym` 🔒
-`GET /sessions/mine`, `POST /sessions`, `GET /sessions/:id`, `POST /sessions/:id/sets`,
-`POST /sessions/:id/finish`, `POST /sessions/:id/reroute`
+`GET /sessions/mine`, `GET /sessions/:id`, `POST /sessions/:id/sets`, `POST /sessions/:id/finish` ·
+⭐ `POST /sessions`, `POST /sessions/:id/reroute` (generan la rutina con IA)
 
 ### Planes de entrenamiento — `/api/training-plans` 🔒
-`GET /`, `GET /active`, `POST /generate`, `GET /:id`, `PATCH /:id/cancel`
+`GET /`, `GET /active`, `GET /:id`, `PATCH /:id/cancel` · ⭐ `POST /generate`
 
-### IA — `/api/ai` 🔒
-`POST /coach`, `GET /coach/history`, `POST /form-check`, `GET /form-check/mine`
+### IA — `/api/ai` 🔒 ⭐
+`POST /coach`, `POST /form-check`, `POST /run-analysis` requieren **FitNow+**.
+`GET /coach/history` y `GET /form-check/mine` quedan abiertos: si alguien deja de
+pagar sigue viendo lo que ya generó.
+
+### Suscripciones — `/api/subscriptions`
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/plans` | Catálogo de planes para el paywall (público) |
+| GET 🔒 | `/me` | Plan vigente + historial de suscripciones |
+| POST 🔒 | `/apple/verify` | Canjea una transacción de StoreKit 2 |
+| POST 🔒 | `/google/verify` | Canjea una compra de Play Billing |
+| POST | `/apple/notifications` | App Store Server Notifications v2 |
+| POST | `/google/notifications` | Real-time Developer Notifications (Pub/Sub) |
 
 ### Hazards — `/api/hazards`
 `GET /`, `GET /near` · 🔒 `POST /`, `POST /:id/vote`, `PATCH /:id/status`
@@ -308,6 +323,64 @@ Todas las rutas cuelgan de `/api`. Las marcadas con 🔒 requieren `Authorizatio
 - Roles: **atleta**, **proveedor** y **admin**. El middleware `roles.middleware.js` restringe
   las rutas de admin y proveedor.
 - Login federado: **Apple** y **Google**, más **2FA** y **magic link**.
+
+---
+
+## Planes y suscripciones
+
+FitNow tiene dos planes. El marketplace es gratis y siempre lo va a ser; lo que se
+paga es el Coach IA y el running sin tope de distancia.
+
+| | **Free** | **FitNow+** |
+|---|---|---|
+| Gimnasios, entrenadores y clubes | ✅ | ✅ |
+| Inscripciones, pagos y check-in | ✅ | ✅ |
+| Ofertas, hazards, XP y logros | ✅ | ✅ |
+| Running | hasta **2 km** por salida | sin límite |
+| Coach IA | — | ✅ |
+| Análisis de corrida con IA | — | ✅ |
+| Rutinas de gimnasio con IA | — | ✅ |
+| Corrección de técnica | — | ✅ |
+
+El tope del plan gratis existe para que se pueda probar el módulo de running de
+verdad antes de decidir si vale la pena pagarlo. Se configura con `FREE_RUN_LIMIT_M`.
+
+### Cómo se resuelve el plan
+
+El catálogo vive en `src/config/plans.js` y es la única fuente de verdad. Un usuario
+es premium si tiene una fila en `subscriptions` con `status` en `active`/`grace`, sin
+vencer, y con un `product_id` del catálogo. Si algo no cierra, queda free: es el lado
+seguro.
+
+- `attachEntitlement` deja el plan en `req.entitlement`.
+- `requirePremium(feature)` corta con **402 `PREMIUM_REQUIRED`** e informa qué función
+  se intentó usar, para que la app abra el paywall en vez de un cartel de error.
+- El límite de running se aplica en tres lugares: al generar rutas, al recibir
+  telemetría (los puntos que pasan el tope no se guardan) y al cerrar la corrida
+  (la distancia que declara el cliente se recorta). Sin esto, una app modificada
+  podría guardar corridas largas gratis.
+
+### Validación de compras
+
+Las compras se validan contra la tienda antes de otorgar nada:
+
+- **Apple** — la app manda el `Transaction.jwsRepresentation` de StoreKit 2 a
+  `POST /api/subscriptions/apple/verify`. El backend verifica la cadena `x5c` del JWS,
+  que encadene bien, que esté vigente y que la raíz sea la **Apple Root CA - G3**
+  que se carga en `APPLE_ROOT_CA_G3`, y recién ahí valida la firma ES256.
+- **Google** — `POST /api/subscriptions/google/verify` consulta
+  `purchases.subscriptionsv2.get` en la Play Developer API con la service account
+  de `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`, y reconoce la compra (Play reembolsa
+  automáticamente las que no se reconocen en 3 días).
+
+Renovaciones, bajas y reembolsos llegan por webhook (App Store Server Notifications v2
+y Real-time Developer Notifications). Las notificaciones repetidas se descartan por id
+en `store_notifications`, así un reintento de Apple no aplica el mismo evento dos veces.
+
+Sin las claves de tienda cargadas, el canje sigue funcionando pero la suscripción queda
+marcada como `unverified` — misma idea que el modo stub de la IA, para poder probar el
+flujo completo en sandbox. **En producción eso se rechaza**, salvo que se ponga
+`ALLOW_UNVERIFIED_RECEIPTS=true` a propósito.
 
 ---
 

@@ -1,5 +1,6 @@
 // src/controllers/auth.controller.js
 import * as authService from '../services/auth.service.js';
+import { getEntitlement } from '../services/subscription.service.js';
 
 // Endpoint de registro de atleta.
 export async function register(req, res, next) {
@@ -20,8 +21,13 @@ export async function login(req, res, next) {
 // Devuelve tu perfil.
 export async function me(req, res, next) {
   try {
-    const user = await authService.getMe(req.user.id);
-    res.json(user);
+    // El plan viaja en /me para que la app sepa qué mostrar apenas arranca,
+    // sin tener que encadenar un segundo request.
+    const [user, entitlement] = await Promise.all([
+      authService.getMe(req.user.id),
+      getEntitlement(req.user.id),
+    ]);
+    res.json({ ...user, entitlement });
   } catch (err) { next(err); }
 }
 
@@ -38,6 +44,13 @@ export async function changePassword(req, res, next) {
   try {
     await authService.changePassword(req.user.id, req.body);
     res.json({ status: 'ok' });
+  } catch (err) { next(err); }
+}
+
+// Borra tu cuenta desde la app (requisito de App Store).
+export async function deleteAccount(req, res, next) {
+  try {
+    res.json(await authService.deleteAccount(req.user.id));
   } catch (err) { next(err); }
 }
 
