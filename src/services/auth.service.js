@@ -7,6 +7,7 @@ import * as provRepo from '../repositories/provider.repository.js';
 import { query, queryOne } from '../db.js';
 import { Errors } from '../utils/errors.js';
 import * as mailer from '../utils/mailer.js';
+import { appBundleId } from '../utils/appleStore.js';
 
 const SALT_ROUNDS    = 12;
 const JWT_SECRET     = () => process.env.JWT_SECRET         || 'dev_secret_change_me';
@@ -154,8 +155,11 @@ export async function appleSignIn({ identity_token, name }) {
   let applePayload;
   try {
     const appleSignin = await import('apple-signin-auth');
+    // El `aud` del identity token es el bundle id de la app, no el de APNs:
+    // eran la misma variable y el valor por defecto ni siquiera era el bundle
+    // con el que se firma la app, así que el login con Apple fallaba.
     applePayload = await appleSignin.default.verifyIdToken(identity_token, {
-      audience: process.env.APNS_BUNDLE_ID || 'com.fitnow.app',
+      audience: appBundleId(),
       ignoreExpiration: false,
     });
   } catch (err) {

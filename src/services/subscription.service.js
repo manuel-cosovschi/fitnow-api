@@ -5,18 +5,12 @@ import logger from '../utils/logger.js';
 import {
   verifyAppleJws,
   transactionToSubscription,
+  appBundleId,
 } from '../utils/appleStore.js';
 import * as googlePlay from '../utils/googlePlay.js';
 import { isPremiumProduct, planLimits, planCatalog } from '../config/plans.js';
 
 const FREE = Object.freeze({ plan: 'free', status: 'none', source: null, expires_at: null });
-
-function appleBundleId() {
-  // Tiene que ser el mismo PRODUCT_BUNDLE_IDENTIFIER con el que se firma la app
-  // iOS: Apple lo mete en el comprobante y acá se compara. Si no coinciden, se
-  // rechazan todas las compras.
-  return process.env.APPLE_BUNDLE_ID || 'com.manuelcosovschi.FitNow';
-}
 
 function isProduction() {
   return process.env.NODE_ENV === 'production';
@@ -105,7 +99,7 @@ export async function verifyAppleTransaction(userId, { signed_transaction, signe
     throw Errors.internal('La validación de compras no está configurada.');
   }
 
-  if (transaction.bundleId && transaction.bundleId !== appleBundleId()) {
+  if (transaction.bundleId && transaction.bundleId !== appBundleId()) {
     throw Errors.badRequest('El comprobante no pertenece a esta app.');
   }
 

@@ -4,6 +4,7 @@ import {
   decodeJwsPayload,
   transactionToSubscription,
   resetRootCertificateCache,
+  appBundleId,
 } from '../../src/utils/appleStore.js';
 import {
   signAppleJws,
@@ -146,5 +147,39 @@ describe('transactionToSubscription', () => {
   it('lee production cuando la compra no es de sandbox', () => {
     const sub = transactionToSubscription(makeTransaction({ environment: 'Production' }), null, now);
     expect(sub.environment).toBe('production');
+  });
+});
+
+describe('appBundleId', () => {
+  const ORIGINAL = {
+    apple: process.env.APPLE_BUNDLE_ID,
+    apns:  process.env.APNS_BUNDLE_ID,
+  };
+
+  beforeEach(() => {
+    delete process.env.APPLE_BUNDLE_ID;
+    delete process.env.APNS_BUNDLE_ID;
+  });
+
+  afterEach(() => {
+    for (const [key, value] of [['APPLE_BUNDLE_ID', ORIGINAL.apple], ['APNS_BUNDLE_ID', ORIGINAL.apns]]) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+
+  it('usa APPLE_BUNDLE_ID cuando está configurado', () => {
+    process.env.APPLE_BUNDLE_ID = 'com.ejemplo.app';
+    process.env.APNS_BUNDLE_ID  = 'com.viejo.app';
+    expect(appBundleId()).toBe('com.ejemplo.app');
+  });
+
+  it('cae en APNS_BUNDLE_ID para no romper los deploys viejos', () => {
+    process.env.APNS_BUNDLE_ID = 'com.viejo.app';
+    expect(appBundleId()).toBe('com.viejo.app');
+  });
+
+  it('por defecto usa el bundle con el que se firma la app', () => {
+    expect(appBundleId()).toBe('com.manuelcosovschi.FitNow');
   });
 });

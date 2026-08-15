@@ -19,6 +19,21 @@ import crypto from 'crypto';
 
 const APPLE_ROOT_CN = 'Apple Root CA - G3';
 
+/**
+ * Bundle id de la app iOS. Lo usan dos cosas distintas que tienen que estar de
+ * acuerdo: el `aud` del identity token de Sign in with Apple y el `bundleId`
+ * del comprobante de compra. Si no coincide con el PRODUCT_BUNDLE_IDENTIFIER
+ * con el que se firma la app, ambas fallan.
+ *
+ * APNS_BUNDLE_ID queda como respaldo porque es lo que usaban los deploys
+ * anteriores a que existiera APPLE_BUNDLE_ID.
+ */
+export function appBundleId() {
+  return process.env.APPLE_BUNDLE_ID
+      || process.env.APNS_BUNDLE_ID
+      || 'com.manuelcosovschi.FitNow';
+}
+
 // ─── Helpers de base64url ────────────────────────────────────────────────────
 
 function b64urlToBuffer(input) {
