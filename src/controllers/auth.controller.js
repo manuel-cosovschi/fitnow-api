@@ -50,7 +50,8 @@ export async function changePassword(req, res, next) {
 // Borra tu cuenta desde la app (requisito de App Store).
 export async function deleteAccount(req, res, next) {
   try {
-    res.json(await authService.deleteAccount(req.user.id));
+    await authService.deleteAccount(req.user.id);
+    res.json({ status: 'ok', deleted: true });
   } catch (err) { next(err); }
 }
 

@@ -12,7 +12,10 @@ import { isPremiumProduct, planLimits, planCatalog } from '../config/plans.js';
 const FREE = Object.freeze({ plan: 'free', status: 'none', source: null, expires_at: null });
 
 function appleBundleId() {
-  return process.env.APPLE_BUNDLE_ID || 'com.fitnow.app';
+  // Tiene que ser el mismo PRODUCT_BUNDLE_IDENTIFIER con el que se firma la app
+  // iOS: Apple lo mete en el comprobante y acá se compara. Si no coinciden, se
+  // rechazan todas las compras.
+  return process.env.APPLE_BUNDLE_ID || 'com.manuelcosovschi.FitNow';
 }
 
 function isProduction() {
