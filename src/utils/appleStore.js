@@ -10,14 +10,24 @@
 //   2. que la raíz sea la Apple Root CA - G3 que tenemos fijada,
 //   3. que la firma del JWS valide contra la clave pública de la hoja.
 //
-// El paso 2 necesita el certificado raíz cargado en APPLE_ROOT_CA_G3
-// (descargalo de https://www.apple.com/certificateauthority/). Sin esa
-// variable la cadena se valida igual pero queda marcada como 'unverified',
-// del mismo modo que la IA corre en modo stub sin OPENAI_API_KEY.
+// El certificado raíz viene versionado en src/certs/AppleRootCA-G3.pem: es
+// público (solo tiene la clave pública) y así el backend valida compras apenas
+// se despliega, sin un paso de configuración que alguien pueda olvidarse.
+// APPLE_ROOT_CA_G3 lo sobreescribe si Apple llega a rotar la raíz.
+//
+// Una cadena que no termina en esa raíz —por ejemplo la que genera la
+// configuración local de StoreKit para probar en el simulador— no se rechaza
+// acá: se devuelve como 'unverified' y es el servicio el que decide, aceptándola
+// fuera de producción y rechazándola en producción.
 
 import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-const APPLE_ROOT_CN = 'Apple Root CA - G3';
+const BUNDLED_ROOT_PATH = path.join(
+  path.dirname(fileURLToPath(import.meta.url)), '..', 'certs', 'AppleRootCA-G3.pem'
+);
 
 /**
  * Bundle id de la app iOS. Lo usan dos cosas distintas que tienen que estar de
@@ -58,25 +68,33 @@ export function decodeJwsPayload(jws) {
 let cachedRoot;
 
 /**
- * Devuelve el certificado raíz de Apple configurado, o null si no hay ninguno.
- * Acepta PEM o DER en base64 en APPLE_ROOT_CA_G3.
+ * Raíz de Apple contra la que se fija la cadena: la de APPLE_ROOT_CA_G3 si está
+ * configurada, si no la que viene en el repo. Acepta PEM o DER en base64.
  */
 export function getPinnedRootCertificate() {
   if (cachedRoot !== undefined) return cachedRoot;
 
   const raw = (process.env.APPLE_ROOT_CA_G3 || '').trim();
-  if (!raw) {
-    cachedRoot = null;
-    return cachedRoot;
+
+  if (raw) {
+    try {
+      const pem = raw.includes('BEGIN CERTIFICATE')
+        ? raw.replace(/\\n/g, '\n')
+        : `-----BEGIN CERTIFICATE-----\n${raw.replace(/\s+/g, '')}\n-----END CERTIFICATE-----`;
+      cachedRoot = new crypto.X509Certificate(pem);
+      return cachedRoot;
+    } catch (err) {
+      throw new Error(`[apple] APPLE_ROOT_CA_G3 no es un certificado válido: ${err.message}`);
+    }
   }
 
   try {
-    const pem = raw.includes('BEGIN CERTIFICATE')
-      ? raw.replace(/\\n/g, '\n')
-      : `-----BEGIN CERTIFICATE-----\n${raw.replace(/\s+/g, '')}\n-----END CERTIFICATE-----`;
-    cachedRoot = new crypto.X509Certificate(pem);
+    cachedRoot = new crypto.X509Certificate(fs.readFileSync(BUNDLED_ROOT_PATH));
   } catch (err) {
-    throw new Error(`[apple] APPLE_ROOT_CA_G3 no es un certificado válido: ${err.message}`);
+    // Solo pasa si alguien borró el archivo del repo o el empaquetado se lo
+    // comió. Sin raíz no se puede fijar nada, y el servicio lo trata como
+    // comprobante no verificado.
+    cachedRoot = null;
   }
   return cachedRoot;
 }
@@ -120,21 +138,14 @@ function verifyCertificateChain(x5c, now = new Date()) {
     }
   }
 
+  // La cadena encadena y las firmas validan; lo único que falta es saber si el
+  // ancla es la raíz de Apple. Si no lo es, el comprobante no está probado —
+  // decide el servicio si eso alcanza según el entorno.
   const root = chain[chain.length - 1];
   const pinned = getPinnedRootCertificate();
+  const verification = pinned && root.raw.equals(pinned.raw) ? 'verified' : 'unverified';
 
-  if (pinned) {
-    if (!root.raw.equals(pinned.raw)) {
-      throw new Error('La raíz de la cadena no es el certificado de Apple configurado.');
-    }
-    return { leaf: chain[0], verification: 'verified' };
-  }
-
-  // Sin raíz fijada solo podemos comprobar que la cadena dice ser de Apple.
-  if (!root.subject.includes(APPLE_ROOT_CN)) {
-    throw new Error('La raíz de la cadena no es la Apple Root CA - G3.');
-  }
-  return { leaf: chain[0], verification: 'unverified' };
+  return { leaf: chain[0], verification };
 }
 
 /**

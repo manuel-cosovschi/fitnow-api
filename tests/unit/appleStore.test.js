@@ -4,6 +4,7 @@ import {
   decodeJwsPayload,
   transactionToSubscription,
   resetRootCertificateCache,
+  getPinnedRootCertificate,
   appBundleId,
 } from '../../src/utils/appleStore.js';
 import {
@@ -34,7 +35,8 @@ describe('verifyAppleJws', () => {
     const { payload, verification } = verifyAppleJws(signAppleJws(tx));
     expect(payload.transactionId).toBe(tx.transactionId);
     expect(payload.productId).toBe('com.fitnow.plus.monthly');
-    // Sin raíz configurada la cadena valida pero no queda fijada.
+    // La cadena de prueba no encadena a la raíz real de Apple que trae el repo,
+    // así que el comprobante queda sin probar.
     expect(verification).toBe('unverified');
   });
 
@@ -45,11 +47,13 @@ describe('verifyAppleJws', () => {
     expect(verification).toBe('verified');
   });
 
-  it('rechaza una cadena que no termina en la raíz configurada', () => {
+  it('no da por probada una cadena que termina en otra raíz', () => {
     process.env.APPLE_ROOT_CA_G3 = OTHER_ROOT_PEM;
     resetRootCertificateCache();
-    expect(() => verifyAppleJws(signAppleJws(makeTransaction())))
-      .toThrow(/no es el certificado de Apple configurado/);
+    // Otra raíz que también dice llamarse "Apple Root CA - G3": el nombre no
+    // alcanza, lo que vale es que sea el mismo certificado.
+    const { verification } = verifyAppleJws(signAppleJws(makeTransaction()));
+    expect(verification).toBe('unverified');
   });
 
   it('rechaza un payload alterado después de firmar', () => {
@@ -181,5 +185,31 @@ describe('appBundleId', () => {
 
   it('por defecto usa el bundle con el que se firma la app', () => {
     expect(appBundleId()).toBe('com.manuelcosovschi.FitNow');
+  });
+});
+
+describe('raíz de Apple incluida en el repo', () => {
+  it('es la Apple Root CA - G3 y está vigente', () => {
+    const root = getPinnedRootCertificate();
+    expect(root).not.toBeNull();
+    expect(root.subject).toContain('Apple Root CA - G3');
+    expect(root.subject).toContain('Apple Inc.');
+    // Una raíz es auto-firmada: su emisor es ella misma.
+    expect(root.issuer).toBe(root.subject);
+    expect(root.verify(root.publicKey)).toBe(true);
+    expect(new Date(root.validTo).getTime()).toBeGreaterThan(Date.now());
+  });
+
+  it('tiene la huella publicada por Apple', () => {
+    // Si alguien cambia el archivo del repo, este test lo caza.
+    expect(getPinnedRootCertificate().fingerprint256).toBe(
+      '63:34:3A:BF:B8:9A:6A:03:EB:B5:7E:9B:3F:5F:A7:BE:7C:4F:5C:75:6F:30:17:B3:A8:C4:88:C3:65:3E:91:79'
+    );
+  });
+
+  it('se puede sobreescribir con APPLE_ROOT_CA_G3', () => {
+    process.env.APPLE_ROOT_CA_G3 = OTHER_ROOT_PEM;
+    resetRootCertificateCache();
+    expect(getPinnedRootCertificate().subject).toContain('Impostor');
   });
 });

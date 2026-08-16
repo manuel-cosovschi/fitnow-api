@@ -366,8 +366,11 @@ Las compras se validan contra la tienda antes de otorgar nada:
 
 - **Apple** — la app manda el `Transaction.jwsRepresentation` de StoreKit 2 a
   `POST /api/subscriptions/apple/verify`. El backend verifica la cadena `x5c` del JWS,
-  que encadene bien, que esté vigente y que la raíz sea la **Apple Root CA - G3**
-  que se carga en `APPLE_ROOT_CA_G3`, y recién ahí valida la firma ES256.
+  que encadene bien, que esté vigente y que la raíz sea la **Apple Root CA - G3**,
+  y recién ahí valida la firma ES256. Esa raíz viene versionada en
+  `src/certs/AppleRootCA-G3.pem` —es un certificado público, no un secreto— así que
+  no hay nada que configurar: `APPLE_ROOT_CA_G3` existe solo para sobreescribirla
+  si Apple la rota antes de 2039.
 - **Google** — `POST /api/subscriptions/google/verify` consulta
   `purchases.subscriptionsv2.get` en la Play Developer API con la service account
   de `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`, y reconoce la compra (Play reembolsa
@@ -377,10 +380,14 @@ Renovaciones, bajas y reembolsos llegan por webhook (App Store Server Notificati
 y Real-time Developer Notifications). Las notificaciones repetidas se descartan por id
 en `store_notifications`, así un reintento de Apple no aplica el mismo evento dos veces.
 
-Sin las claves de tienda cargadas, el canje sigue funcionando pero la suscripción queda
-marcada como `unverified` — misma idea que el modo stub de la IA, para poder probar el
-flujo completo en sandbox. **En producción eso se rechaza**, salvo que se ponga
-`ALLOW_UNVERIFIED_RECEIPTS=true` a propósito.
+Un comprobante cuya cadena no termina en la raíz de Apple —por ejemplo el que genera
+la configuración local de StoreKit para probar en el simulador— no se rechaza de una:
+queda marcado como `unverified`, y se acepta fuera de producción para poder ejercitar
+el flujo completo, misma idea que el modo stub de la IA. **En producción eso se
+rechaza**, salvo que se ponga `ALLOW_UNVERIFIED_RECEIPTS=true` a propósito.
+
+Lo de Google sí necesita configuración: sin `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` no hay
+forma de consultar la Play Developer API.
 
 ### El bundle id
 
