@@ -382,6 +382,14 @@ marcada como `unverified` — misma idea que el modo stub de la IA, para poder p
 flujo completo en sandbox. **En producción eso se rechaza**, salvo que se ponga
 `ALLOW_UNVERIFIED_RECEIPTS=true` a propósito.
 
+### El bundle id
+
+`APPLE_BUNDLE_ID` tiene que ser el mismo `PRODUCT_BUNDLE_IDENTIFIER` con el que se firma
+la app iOS. De él dependen dos cosas que fallan calladas si no coincide: el `aud` del
+identity token de **Sign in with Apple** y el `bundleId` del comprobante de compra.
+`appBundleId()` en `src/utils/appleStore.js` es el único lugar que lo resuelve, y cae en
+`APNS_BUNDLE_ID` para no romper los deploys que ya venían configurados con esa variable.
+
 ---
 
 ## Tests

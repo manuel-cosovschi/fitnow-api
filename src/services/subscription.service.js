@@ -148,9 +148,14 @@ export async function handleAppleNotification(signedPayload) {
     throw Errors.internal('La validación de notificaciones no está configurada.');
   }
 
+  // El UUID siempre viene en la v2, pero si faltara el INSERT rompería por el
+  // NOT NULL y Apple reintentaría la misma notificación para siempre.
+  const notificationId = notification.notificationUUID
+    || `${notification.notificationType}:${notification.signedDate}`;
+
   const isNew = await subsRepo.recordNotification({
     platform: 'apple',
-    notification_id: notification.notificationUUID,
+    notification_id: notificationId,
     notification_type: notification.notificationType,
     subtype: notification.subtype,
     payload: notification,
