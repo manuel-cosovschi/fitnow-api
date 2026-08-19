@@ -1,5 +1,7 @@
 // src/controllers/payments.controller.js
 import * as svc from '../services/payments.service.js';
+import * as mpOAuth from '../services/mercadopagoOAuth.service.js';
+import logger from '../utils/logger.js';
 
 // Prepara un pago con Stripe (crea la 'intención de pago') y la inscripción pendiente.
 export async function stripeIntent(req, res, next) {
@@ -29,6 +31,46 @@ export async function mpWebhook(req, res, next) {
     await svc.handleMpWebhook(req.body, req.query, req.headers);
     res.json({ received: true });
   } catch (err) { next(err); }
+}
+
+// ─── Conexión de la cuenta de cobro del proveedor ─────────────────────────────
+
+/** GET /payments/mercadopago/connect — devuelve la URL a la que mandar al proveedor. */
+export async function mpConnectStart(req, res, next) {
+  try {
+    res.json(await mpOAuth.startConnection(req.user.id));
+  } catch (err) { next(err); }
+}
+
+/** GET /payments/mercadopago/status — estado de la cuenta conectada. */
+export async function mpConnectStatus(req, res, next) {
+  try {
+    res.json(await mpOAuth.getStatus(req.user.id));
+  } catch (err) { next(err); }
+}
+
+/** DELETE /payments/mercadopago/connect — desconecta la cuenta. */
+export async function mpDisconnect(req, res, next) {
+  try {
+    res.json(await mpOAuth.disconnect(req.user.id));
+  } catch (err) { next(err); }
+}
+
+/**
+ * GET /payments/mercadopago/oauth/callback
+ * Vuelve el navegador desde MercadoPago. Se redirige de nuevo a la app por deep
+ * link en los dos casos, para que el proveedor vea el resultado adentro y no en
+ * una pantalla del navegador.
+ */
+export async function mpOAuthCallback(req, res) {
+  const deep = process.env.IOS_DEEP_LINK_SCHEME || 'fitnow';
+  try {
+    await mpOAuth.completeConnection({ code: req.query.code, state: req.query.state });
+    res.redirect(`${deep}://mp-connected?status=ok`);
+  } catch (err) {
+    logger.warn(`[mp-oauth] callback fallido: ${err.message}`);
+    res.redirect(`${deep}://mp-connected?status=error&reason=${encodeURIComponent(err.message)}`);
+  }
 }
 
 // Valida un cupón de descuento.

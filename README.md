@@ -28,6 +28,7 @@
 - [Referencia de la API](#referencia-de-la-api)
 - [Autenticación y roles](#autenticación-y-roles)
 - [Planes y suscripciones](#planes-y-suscripciones)
+- [Cobro a los proveedores](#cobro-a-los-proveedores)
 - [Tests](#tests)
 - [Docker](#docker)
 - [Deploy](#deploy)
@@ -291,6 +292,10 @@ pagar sigue viendo lo que ya generó.
 `POST /coupons/validate`, `GET /methods`, `DELETE /methods/:id`,
 `POST /methods/:id/default`, `POST /refunds`
 
+Cuenta de cobro del proveedor (rol `provider_admin`):
+`GET /mercadopago/connect` (devuelve la URL de autorización), `GET /mercadopago/status`,
+`DELETE /mercadopago/connect` · público: `GET /mercadopago/oauth/callback`
+
 ### Mensajes / push — `/api/users` 🔒
 `GET /me/messages`, `POST /me/messages/:id/read`, `POST /me/messages/read-all`,
 `POST/DELETE /me/push-token`
@@ -396,6 +401,55 @@ la app iOS. De él dependen dos cosas que fallan calladas si no coincide: el `au
 identity token de **Sign in with Apple** y el `bundleId` del comprobante de compra.
 `appBundleId()` en `src/utils/appleStore.js` es el único lugar que lo resuelve, y cae en
 `APNS_BUNDLE_ID` para no romper los deploys que ya venían configurados con esa variable.
+
+---
+
+## Cobro a los proveedores
+
+Hay dos formas de que un proveedor cobre, y la app soporta las dos a la vez.
+
+### Cobro directo (recomendado)
+
+El proveedor conecta su cuenta de MercadoPago desde el panel. A partir de ahí,
+la preferencia de pago de sus actividades **se crea con su token**, así que el
+dinero le entra derecho a su cuenta y MercadoPago deposita la comisión de FitNow
+por `marketplace_fee`. No pasa plata ajena por la cuenta de la plataforma y no
+hay nada que liquidar a mano.
+
+```
+cliente paga → cuenta del proveedor (90 %)
+             → cuenta de FitNow      (10 %, marketplace_fee)
+```
+
+### Saldo y retiro (el circuito de siempre)
+
+Si no conectó su cuenta, se cobra con el token de la plataforma, se le acredita
+el neto en `provider_ledger` y lo retira por CBU, con un admin liquidando la
+transferencia. Sirve como respaldo y para la transición: nadie deja de cobrar
+mientras conecta su cuenta.
+
+### El detalle que importa
+
+`provider_ledger.settlement` distingue los dos casos, y **el saldo retirable
+cuenta solo los movimientos `platform`**. Sin esa distinción, un cobro que ya
+entró a la cuenta del proveedor también figuraría como saldo a retirar y se le
+terminaría pagando dos veces.
+
+`GET /api/providers/me/balance` informa las dos cosas por separado: `available`
+(lo que FitNow le debe) y `direct_total` (lo que ya cobró en su cuenta).
+
+### Los tokens
+
+Un token OAuth de proveedor permite cobrar en su nombre, así que se guarda
+cifrado con AES-256-GCM (`src/utils/secretBox.js`). La clave sale de
+`PAYMENTS_ENCRYPTION_KEY`, o se deriva de `JWT_SECRET` con HKDF si no está
+configurada. El repositorio cifra y descifra solo: quien lo usa nunca ve la
+columna cruda, así que no hay forma de guardar un token en texto plano por
+descuido.
+
+Los tokens de MercadoPago vencen. Antes de cada cobro se refresca el que esté
+por vencer; si el refresco falla, la cuenta queda marcada como vencida y el
+cobro cae al circuito de la plataforma en vez de romperse.
 
 ---
 
