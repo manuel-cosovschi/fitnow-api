@@ -58,3 +58,6 @@ route_score_*.pkl
 
 # volcados de carteras del banco (reproducibles con bench/dump-portfolios.js, pesan decenas de MB)
 bench/portfolios-*.jsonl
+
+# cadena de certificados de prueba para los tests de App Store (se regenera sola)
+tests/fixtures/apple/.generated/

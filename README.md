@@ -27,6 +27,8 @@
 - [Integraciones externas](#integraciones-externas)
 - [Referencia de la API](#referencia-de-la-api)
 - [Autenticación y roles](#autenticación-y-roles)
+- [Planes y suscripciones](#planes-y-suscripciones)
+- [Cobro a los proveedores](#cobro-a-los-proveedores)
 - [Tests](#tests)
 - [Docker](#docker)
 - [Deploy](#deploy)
@@ -217,7 +219,8 @@ Los endpoints de IA tienen un **rate limit propio** (`AI_RATE_LIMIT_MAX`,
 
 ## Referencia de la API
 
-Todas las rutas cuelgan de `/api`. Las marcadas con 🔒 requieren `Authorization: Bearer <token>`.
+Todas las rutas cuelgan de `/api`. Las marcadas con 🔒 requieren `Authorization: Bearer <token>`
+y las marcadas con ⭐ requieren el plan **FitNow+** (ver [Planes y suscripciones](#planes-y-suscripciones)).
 
 ### Auth — `/api/auth`
 | Método | Ruta | Descripción |
@@ -231,10 +234,11 @@ Todas las rutas cuelgan de `/api`. Las marcadas con 🔒 requieren `Authorizatio
 | POST | `/2fa/verify` | Verificar segundo factor |
 | POST | `/forgot-password` · `/reset-password` | Flujo de reset |
 | POST | `/verify-email` | Verificación de email |
-| GET/PATCH 🔒 | `/me` | Perfil propio |
+| GET/PATCH 🔒 | `/me` | Perfil propio (incluye el `entitlement` del usuario) |
+| DELETE 🔒 | `/me` | Borrado de cuenta |
 
 ### Cuenta — `/api/account` 🔒
-`GET /me`, `PUT /me`
+`GET /me`, `PUT /me`, `DELETE /me` (borrado de cuenta — requisito de App Store 5.1.1(v))
 
 ### Actividades — `/api/activities`
 `GET /`, `GET /:id`, `GET /:id/reviews`, `GET /:id/posts` · 🔒 `POST /`, `PATCH /:id`,
@@ -256,14 +260,26 @@ Todas las rutas cuelgan de `/api`. Las marcadas con 🔒 requieren `Authorizatio
 `POST /sessions/:id/finish`, `POST /sessions/:id/abandon`
 
 ### Gym — `/api/gym` 🔒
-`GET /sessions/mine`, `POST /sessions`, `GET /sessions/:id`, `POST /sessions/:id/sets`,
-`POST /sessions/:id/finish`, `POST /sessions/:id/reroute`
+`GET /sessions/mine`, `GET /sessions/:id`, `POST /sessions/:id/sets`, `POST /sessions/:id/finish` ·
+⭐ `POST /sessions`, `POST /sessions/:id/reroute` (generan la rutina con IA)
 
 ### Planes de entrenamiento — `/api/training-plans` 🔒
-`GET /`, `GET /active`, `POST /generate`, `GET /:id`, `PATCH /:id/cancel`
+`GET /`, `GET /active`, `GET /:id`, `PATCH /:id/cancel` · ⭐ `POST /generate`
 
-### IA — `/api/ai` 🔒
-`POST /coach`, `GET /coach/history`, `POST /form-check`, `GET /form-check/mine`
+### IA — `/api/ai` 🔒 ⭐
+`POST /coach`, `POST /form-check`, `POST /run-analysis` requieren **FitNow+**.
+`GET /coach/history` y `GET /form-check/mine` quedan abiertos: si alguien deja de
+pagar sigue viendo lo que ya generó.
+
+### Suscripciones — `/api/subscriptions`
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/plans` | Catálogo de planes para el paywall (público) |
+| GET 🔒 | `/me` | Plan vigente + historial de suscripciones |
+| POST 🔒 | `/apple/verify` | Canjea una transacción de StoreKit 2 |
+| POST 🔒 | `/google/verify` | Canjea una compra de Play Billing |
+| POST | `/apple/notifications` | App Store Server Notifications v2 |
+| POST | `/google/notifications` | Real-time Developer Notifications (Pub/Sub) |
 
 ### Hazards — `/api/hazards`
 `GET /`, `GET /near` · 🔒 `POST /`, `POST /:id/vote`, `PATCH /:id/status`
@@ -275,6 +291,10 @@ Todas las rutas cuelgan de `/api`. Las marcadas con 🔒 requieren `Authorizatio
 `POST /stripe/intent`, `POST /mercadopago/preference`, `POST /mercadopago/webhook`,
 `POST /coupons/validate`, `GET /methods`, `DELETE /methods/:id`,
 `POST /methods/:id/default`, `POST /refunds`
+
+Cuenta de cobro del proveedor (rol `provider_admin`):
+`GET /mercadopago/connect` (devuelve la URL de autorización), `GET /mercadopago/status`,
+`DELETE /mercadopago/connect` · público: `GET /mercadopago/oauth/callback`
 
 ### Mensajes / push — `/api/users` 🔒
 `GET /me/messages`, `POST /me/messages/:id/read`, `POST /me/messages/read-all`,
@@ -308,6 +328,128 @@ Todas las rutas cuelgan de `/api`. Las marcadas con 🔒 requieren `Authorizatio
 - Roles: **atleta**, **proveedor** y **admin**. El middleware `roles.middleware.js` restringe
   las rutas de admin y proveedor.
 - Login federado: **Apple** y **Google**, más **2FA** y **magic link**.
+
+---
+
+## Planes y suscripciones
+
+FitNow tiene dos planes. El marketplace es gratis y siempre lo va a ser; lo que se
+paga es el Coach IA y el running sin tope de distancia.
+
+| | **Free** | **FitNow+** |
+|---|---|---|
+| Gimnasios, entrenadores y clubes | ✅ | ✅ |
+| Inscripciones, pagos y check-in | ✅ | ✅ |
+| Ofertas, hazards, XP y logros | ✅ | ✅ |
+| Running | hasta **2 km** por salida | sin límite |
+| Coach IA | — | ✅ |
+| Análisis de corrida con IA | — | ✅ |
+| Rutinas de gimnasio con IA | — | ✅ |
+| Corrección de técnica | — | ✅ |
+
+El tope del plan gratis existe para que se pueda probar el módulo de running de
+verdad antes de decidir si vale la pena pagarlo. Se configura con `FREE_RUN_LIMIT_M`.
+
+### Cómo se resuelve el plan
+
+El catálogo vive en `src/config/plans.js` y es la única fuente de verdad. Un usuario
+es premium si tiene una fila en `subscriptions` con `status` en `active`/`grace`, sin
+vencer, y con un `product_id` del catálogo. Si algo no cierra, queda free: es el lado
+seguro.
+
+- `attachEntitlement` deja el plan en `req.entitlement`.
+- `requirePremium(feature)` corta con **402 `PREMIUM_REQUIRED`** e informa qué función
+  se intentó usar, para que la app abra el paywall en vez de un cartel de error.
+- El límite de running se aplica en tres lugares: al generar rutas, al recibir
+  telemetría (los puntos que pasan el tope no se guardan) y al cerrar la corrida
+  (la distancia que declara el cliente se recorta). Sin esto, una app modificada
+  podría guardar corridas largas gratis.
+
+### Validación de compras
+
+Las compras se validan contra la tienda antes de otorgar nada:
+
+- **Apple** — la app manda el `Transaction.jwsRepresentation` de StoreKit 2 a
+  `POST /api/subscriptions/apple/verify`. El backend verifica la cadena `x5c` del JWS,
+  que encadene bien, que esté vigente y que la raíz sea la **Apple Root CA - G3**,
+  y recién ahí valida la firma ES256. Esa raíz viene versionada en
+  `src/certs/AppleRootCA-G3.pem` —es un certificado público, no un secreto— así que
+  no hay nada que configurar: `APPLE_ROOT_CA_G3` existe solo para sobreescribirla
+  si Apple la rota antes de 2039.
+- **Google** — `POST /api/subscriptions/google/verify` consulta
+  `purchases.subscriptionsv2.get` en la Play Developer API con la service account
+  de `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`, y reconoce la compra (Play reembolsa
+  automáticamente las que no se reconocen en 3 días).
+
+Renovaciones, bajas y reembolsos llegan por webhook (App Store Server Notifications v2
+y Real-time Developer Notifications). Las notificaciones repetidas se descartan por id
+en `store_notifications`, así un reintento de Apple no aplica el mismo evento dos veces.
+
+Un comprobante cuya cadena no termina en la raíz de Apple —por ejemplo el que genera
+la configuración local de StoreKit para probar en el simulador— no se rechaza de una:
+queda marcado como `unverified`, y se acepta fuera de producción para poder ejercitar
+el flujo completo, misma idea que el modo stub de la IA. **En producción eso se
+rechaza**, salvo que se ponga `ALLOW_UNVERIFIED_RECEIPTS=true` a propósito.
+
+Lo de Google sí necesita configuración: sin `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` no hay
+forma de consultar la Play Developer API.
+
+### El bundle id
+
+`APPLE_BUNDLE_ID` tiene que ser el mismo `PRODUCT_BUNDLE_IDENTIFIER` con el que se firma
+la app iOS. De él dependen dos cosas que fallan calladas si no coincide: el `aud` del
+identity token de **Sign in with Apple** y el `bundleId` del comprobante de compra.
+`appBundleId()` en `src/utils/appleStore.js` es el único lugar que lo resuelve, y cae en
+`APNS_BUNDLE_ID` para no romper los deploys que ya venían configurados con esa variable.
+
+---
+
+## Cobro a los proveedores
+
+Hay dos formas de que un proveedor cobre, y la app soporta las dos a la vez.
+
+### Cobro directo (recomendado)
+
+El proveedor conecta su cuenta de MercadoPago desde el panel. A partir de ahí,
+la preferencia de pago de sus actividades **se crea con su token**, así que el
+dinero le entra derecho a su cuenta y MercadoPago deposita la comisión de FitNow
+por `marketplace_fee`. No pasa plata ajena por la cuenta de la plataforma y no
+hay nada que liquidar a mano.
+
+```
+cliente paga → cuenta del proveedor (90 %)
+             → cuenta de FitNow      (10 %, marketplace_fee)
+```
+
+### Saldo y retiro (el circuito de siempre)
+
+Si no conectó su cuenta, se cobra con el token de la plataforma, se le acredita
+el neto en `provider_ledger` y lo retira por CBU, con un admin liquidando la
+transferencia. Sirve como respaldo y para la transición: nadie deja de cobrar
+mientras conecta su cuenta.
+
+### El detalle que importa
+
+`provider_ledger.settlement` distingue los dos casos, y **el saldo retirable
+cuenta solo los movimientos `platform`**. Sin esa distinción, un cobro que ya
+entró a la cuenta del proveedor también figuraría como saldo a retirar y se le
+terminaría pagando dos veces.
+
+`GET /api/providers/me/balance` informa las dos cosas por separado: `available`
+(lo que FitNow le debe) y `direct_total` (lo que ya cobró en su cuenta).
+
+### Los tokens
+
+Un token OAuth de proveedor permite cobrar en su nombre, así que se guarda
+cifrado con AES-256-GCM (`src/utils/secretBox.js`). La clave sale de
+`PAYMENTS_ENCRYPTION_KEY`, o se deriva de `JWT_SECRET` con HKDF si no está
+configurada. El repositorio cifra y descifra solo: quien lo usa nunca ve la
+columna cruda, así que no hay forma de guardar un token en texto plano por
+descuido.
+
+Los tokens de MercadoPago vencen. Antes de cada cobro se refresca el que esté
+por vencer; si el refresco falla, la cuenta queda marcada como vencida y el
+cobro cae al circuito de la plataforma en vez de romperse.
 
 ---
 

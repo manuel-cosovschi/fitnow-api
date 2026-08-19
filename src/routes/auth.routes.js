@@ -21,6 +21,7 @@ router.post('/login',              validateBody(loginSchema),             ctrl.l
 router.get ('/me',  requireAuth,                                          ctrl.me);
 router.patch('/me', requireAuth,   validateBody(updateMeSchema),          ctrl.updateMe);
 router.post('/me/password', requireAuth, validateBody(changePasswordSchema), ctrl.changePassword);
+router.delete('/me', requireAuth,                                         ctrl.deleteAccount);
 
 // Password reset (public — no auth required)
 router.post('/forgot-password',    validateBody(forgotPasswordSchema),  ctrl.forgotPassword);

@@ -2,6 +2,8 @@
 import * as runService from '../services/run.service.js';
 import { generateRoutes } from '../services/routeGenerator.service.js';
 import { Errors } from '../utils/errors.js';
+import { premiumRequired } from '../middleware/entitlements.js';
+import { PREMIUM_FEATURES } from '../config/plans.js';
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 export async function listRoutes(req, res, next) {
@@ -28,6 +30,16 @@ export async function routesPost(req, res, next) {
     const { origin_lat, origin_lng, distance_m } = req.body;
 
     if (origin_lat !== undefined && origin_lng !== undefined && distance_m !== undefined) {
+      // Plan free: solo rutas cortas, para que se pueda probar el módulo antes
+      // de pagar. Se corta acá para no gastar una llamada a OSRM al pedo.
+      const maxDistance = req.entitlement?.run_max_distance_m ?? null;
+      if (maxDistance != null && Number(distance_m) > maxDistance) {
+        return next(premiumRequired(
+          PREMIUM_FEATURES.RUN_UNLIMITED,
+          `El plan gratis genera rutas de hasta ${maxDistance / 1000} km. Pasate a FitNow+ para distancias más largas.`
+        ));
+      }
+
       // Parámetros opcionales del planificador: perfil de pesos y horario.
       const PROFILES = ['equilibrado', 'seguridad', 'distancia'];
       const profile  = PROFILES.includes(req.body.profile) ? req.body.profile : 'equilibrado';
@@ -86,14 +98,18 @@ export async function getSession(req, res, next) {
 export async function pushTelemetry(req, res, next) {
   try {
     const { points } = req.body;
-    res.json(await runService.pushTelemetry(Number(req.params.id), req.user.id, points));
+    res.json(await runService.pushTelemetry(
+      Number(req.params.id), req.user.id, points, req.entitlement
+    ));
   } catch (err) { next(err); }
 }
 
 // Finaliza la corrida.
 export async function finishSession(req, res, next) {
   try {
-    res.json(await runService.finishSession(Number(req.params.id), req.user.id, req.body));
+    res.json(await runService.finishSession(
+      Number(req.params.id), req.user.id, req.body, req.entitlement
+    ));
   } catch (err) { next(err); }
 }
 

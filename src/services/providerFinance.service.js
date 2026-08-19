@@ -1,9 +1,16 @@
 // src/services/providerFinance.service.js
-// Saldo del proveedor: cada pago confirmado le acredita su parte (precio menos
-// la comisión de la plataforma) en un libro de movimientos. El proveedor ve su
-// saldo disponible y pide retiros con su CBU o alias; el admin los liquida por
-// transferencia y los marca como pagados. La división automática con las
-// pasarelas (Stripe Connect / MercadoPago Marketplace) queda como evolución.
+//
+// Libro de movimientos del proveedor. Cada pago confirmado se anota con su
+// parte (precio menos comisión), pero hay dos formas de que esa plata le
+// llegue, y la diferencia es la columna `settlement`:
+//
+//   direct   → el proveedor conectó su MercadoPago y el cobro le entró derecho
+//              a su cuenta. El movimiento es historial de ventas y nada más.
+//   platform → lo cobró FitNow y se lo debe: genera saldo, que el proveedor
+//              retira por CBU y un admin liquida a mano.
+//
+// Mezclar los dos sería pagar dos veces lo mismo: el saldo disponible cuenta
+// solamente los movimientos 'platform'.
 import { query, queryOne } from '../db.js';
 import { Errors } from '../utils/errors.js';
 import logger from '../utils/logger.js';
@@ -28,7 +35,7 @@ export function splitAmount(gross, pct = commissionPct()) {
  * llegue repetido. Nunca lanza: un fallo acá no debe frenar la activación.
  */
 // Le anota al proveedor lo que le corresponde de un pago confirmado.
-export async function creditEnrollment(enrollmentId) {
+export async function creditEnrollment(enrollmentId, { settlement = 'platform', gateway_ref = null } = {}) {
   try {
     const row = await queryOne(
       `SELECT e.id, e.price_paid, a.provider_id, a.title
@@ -39,14 +46,18 @@ export async function creditEnrollment(enrollmentId) {
     if (!row || !row.provider_id || !(Number(row.price_paid) > 0)) return null;
 
     const { gross, commission, net } = splitAmount(row.price_paid);
+    const description = settlement === 'direct'
+      ? `Cobro directo: ${row.title ?? 'actividad'}`
+      : `Inscripción pagada: ${row.title ?? 'actividad'}`;
+
     await query(
-      `INSERT INTO provider_ledger (provider_id, enrollment_id, gross_amount, commission, amount, description)
-       VALUES (?,?,?,?,?,?)
+      `INSERT INTO provider_ledger
+         (provider_id, enrollment_id, gross_amount, commission, amount, description, settlement, gateway_ref)
+       VALUES (?,?,?,?,?,?,?,?)
        ON CONFLICT (enrollment_id) DO NOTHING`,
-      [row.provider_id, enrollmentId, gross, commission, net,
-       `Inscripción pagada: ${row.title ?? 'actividad'}`]
+      [row.provider_id, enrollmentId, gross, commission, net, description, settlement, gateway_ref]
     );
-    return { provider_id: row.provider_id, amount: net };
+    return { provider_id: row.provider_id, amount: net, settlement };
   } catch (err) {
     logger.error('creditEnrollment error:', err.message);
     return null;
@@ -60,23 +71,35 @@ async function providerIdFor(userId) {
   return u.provider_id;
 }
 
-// Devuelve el saldo: acreditado menos retiros pedidos o pagados.
+/**
+ * Saldo del proveedor. Lo retirable son solo los cobros que hizo la plataforma:
+ * lo que ya entró directo a su cuenta de MercadoPago se informa aparte, para
+ * que se vea todo lo vendido sin que infle lo que se le debe.
+ */
 export async function getBalance(userId) {
   const providerId = await providerIdFor(userId);
-  const credits = await queryOne(
+  const owed = await queryOne(
     `SELECT COALESCE(SUM(amount),0) AS total, COALESCE(SUM(commission),0) AS commission, COUNT(*) AS movements
-     FROM provider_ledger WHERE provider_id = ?`, [providerId]);
+     FROM provider_ledger WHERE provider_id = ? AND settlement = 'platform'`, [providerId]);
+  const direct = await queryOne(
+    `SELECT COALESCE(SUM(amount),0) AS total, COALESCE(SUM(commission),0) AS commission, COUNT(*) AS movements
+     FROM provider_ledger WHERE provider_id = ? AND settlement = 'direct'`, [providerId]);
   const holds = await queryOne(
     `SELECT COALESCE(SUM(amount),0) AS total
      FROM withdrawal_requests WHERE provider_id = ? AND status IN ('pending','paid')`, [providerId]);
-  const available = Math.round((Number(credits.total) - Number(holds.total)) * 100) / 100;
+
+  const available = Math.round((Number(owed.total) - Number(holds.total)) * 100) / 100;
   return {
+    // Lo que FitNow le debe y puede retirar por CBU.
     available,
-    credited_total: Number(credits.total),
-    commission_total: Number(credits.commission),
+    credited_total: Number(owed.total),
+    commission_total: Number(owed.commission) + Number(direct.commission),
     withdrawn_or_pending: Number(holds.total),
-    movements: Number(credits.movements),
+    movements: Number(owed.movements) + Number(direct.movements),
     commission_pct: commissionPct(),
+    // Lo que ya cobró en su cuenta: no se retira porque ya lo tiene.
+    direct_total: Number(direct.total),
+    direct_movements: Number(direct.movements),
   };
 }
 
@@ -84,7 +107,8 @@ export async function getBalance(userId) {
 export async function listLedger(userId, { limit = 30 } = {}) {
   const providerId = await providerIdFor(userId);
   const items = await query(
-    `SELECT id, enrollment_id, gross_amount, commission, amount, description, created_at
+    `SELECT id, enrollment_id, gross_amount, commission, amount, description,
+            settlement, gateway_ref, created_at
      FROM provider_ledger WHERE provider_id = ?
      ORDER BY created_at DESC LIMIT ?`, [providerId, limit]);
   return { items };

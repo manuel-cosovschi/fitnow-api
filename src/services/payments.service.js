@@ -4,7 +4,9 @@ import { query, queryOne, transaction } from '../db.js';
 import { Errors } from '../utils/errors.js';
 import logger from '../utils/logger.js';
 import { awardXp } from '../utils/xp.js';
-import { creditEnrollment } from './providerFinance.service.js';
+import { creditEnrollment, commissionPct, splitAmount } from './providerFinance.service.js';
+import * as payoutAccounts from '../repositories/payoutAccount.repository.js';
+import { ensureFreshAccount } from './mercadopagoOAuth.service.js';
 
 const BASE_URL = () => process.env.APP_BASE_URL || 'https://api.fitnow.com';
 const DEEP_LINK = () => process.env.IOS_DEEP_LINK_SCHEME || 'fitnow';
@@ -95,12 +97,34 @@ export async function handleStripeWebhook(rawBody, signature) {
 // ─── MercadoPago ──────────────────────────────────────────────────────────────
 
 // Crea la preferencia de pago en MercadoPago.
-export async function createMpPreference(userId, { activity_id, plan_name, coupon_code }) {
-  const TOKEN = process.env.MERCADOPAGO_ACCESS_TOKEN;
-  if (!TOKEN) throw Errors.internal('MercadoPago no configurado.');
+/**
+ * Resuelve con qué cuenta se cobra una actividad.
+ *
+ * Si el proveedor conectó su MercadoPago, se cobra con SU token y la plata le
+ * entra directo; FitNow se lleva la comisión vía `marketplace_fee`. Si no lo
+ * conectó, se cobra con el token de la plataforma y se le acredita saldo para
+ * que lo retire por CBU, como venía siendo.
+ */
+async function resolveMpSeller(providerId) {
+  const platformToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
 
+  if (providerId) {
+    const connected = await payoutAccounts.findConnected(providerId);
+    const account = await ensureFreshAccount(connected);
+    if (account?.access_token) {
+      return { token: account.access_token, settlement: 'direct', account };
+    }
+  }
+
+  if (!platformToken) throw Errors.internal('MercadoPago no configurado.');
+  return { token: platformToken, settlement: 'platform', account: null };
+}
+
+export async function createMpPreference(userId, { activity_id, plan_name, coupon_code }) {
   const { enrollmentId, amountCents, activity } = await getOrCreatePendingEnrollment(userId, { activity_id, plan_name, coupon_code });
   const price = amountCents / 100;
+
+  const seller = await resolveMpSeller(activity.provider_id);
 
   const deep = DEEP_LINK();
   const body = {
@@ -112,15 +136,28 @@ export async function createMpPreference(userId, { activity_id, plan_name, coupo
     },
     auto_return: 'approved',
     external_reference: String(enrollmentId),
-    notification_url: `${BASE_URL()}/api/payments/mercadopago/webhook`,
+    // El enrollment viaja en la URL porque el webhook necesita saber de qué
+    // inscripción se trata ANTES de consultar el pago: de eso depende con qué
+    // token puede consultarlo.
+    notification_url: `${BASE_URL()}/api/payments/mercadopago/webhook?enrollment_id=${enrollmentId}`,
   };
+
+  // El fee lo cobra MercadoPago y lo deposita en la cuenta de la plataforma:
+  // solo aplica cuando la preferencia se crea con el token del proveedor.
+  if (seller.settlement === 'direct') {
+    body.marketplace_fee = splitAmount(price).commission;
+  }
 
   const resp = await fetch('https://api.mercadopago.com/checkout/preferences', {
     method:  'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN}` },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${seller.token}` },
     body:    JSON.stringify(body),
   });
-  if (!resp.ok) throw Errors.internal('Error al crear preferencia de MercadoPago.');
+  if (!resp.ok) {
+    const detail = await resp.text().catch(() => '');
+    logger.warn(`[mp] preferencia rechazada (${seller.settlement}): ${resp.status} ${detail.slice(0, 300)}`);
+    throw Errors.internal('Error al crear preferencia de MercadoPago.');
+  }
   const pref = await resp.json();
 
   await query(
@@ -129,7 +166,14 @@ export async function createMpPreference(userId, { activity_id, plan_name, coupo
     [userId, enrollmentId, pref.id, amountCents]
   );
 
-  return { preference_id: pref.id, init_point: pref.init_point, enrollment_id: enrollmentId };
+  return {
+    preference_id: pref.id,
+    init_point: pref.init_point,
+    enrollment_id: enrollmentId,
+    // Para que el panel del proveedor pueda explicar dónde cae la plata.
+    settlement: seller.settlement,
+    commission_pct: commissionPct(),
+  };
 }
 
 // B-1: verify MercadoPago webhook signature using HMAC-SHA256
@@ -166,10 +210,26 @@ function verifyMpSignature(headers, dataId) {
 }
 
 // Procesa el aviso de MercadoPago, verificando que sea auténtico.
-export async function handleMpWebhook(body, query_params, headers = {}) {
-  const TOKEN = process.env.MERCADOPAGO_ACCESS_TOKEN;
-  if (!TOKEN) return;
+/**
+ * Un pago hecho con el token del proveedor no se puede consultar con el de la
+ * plataforma: MP responde 404. Se resuelve el token a partir de la inscripción
+ * que viaja en la notification_url, con el de la plataforma como respaldo (los
+ * cobros viejos y los de proveedores sin cuenta conectada).
+ */
+async function tokenForPayment(enrollmentId) {
+  const platformToken = process.env.MERCADOPAGO_ACCESS_TOKEN || null;
 
+  if (enrollmentId) {
+    const connected = await payoutAccounts.findByEnrollment(enrollmentId);
+    const account = await ensureFreshAccount(connected);
+    if (account?.access_token) {
+      return { token: account.access_token, settlement: 'direct' };
+    }
+  }
+  return { token: platformToken, settlement: 'platform' };
+}
+
+export async function handleMpWebhook(body, query_params, headers = {}) {
   const topic = body?.type || query_params?.type;
   const id    = body?.data?.id || query_params?.id;
 
@@ -178,15 +238,24 @@ export async function handleMpWebhook(body, query_params, headers = {}) {
 
   if (topic !== 'payment' || !id) return;
 
+  const hintedEnrollment = Number(query_params?.enrollment_id) || null;
+  const seller = await tokenForPayment(hintedEnrollment);
+  if (!seller.token) return;
+
   try {
     const resp = await fetch(`https://api.mercadopago.com/v1/payments/${id}`, {
-      headers: { Authorization: `Bearer ${TOKEN}` },
+      headers: { Authorization: `Bearer ${seller.token}` },
     });
-    if (!resp.ok) return;
+    if (!resp.ok) {
+      logger.warn(`[mp] no se pudo leer el pago ${id} (${seller.settlement}): ${resp.status}`);
+      return;
+    }
     const payment = await resp.json();
     if (payment.status === 'approved') {
-      const enrollmentId = Number(payment.external_reference);
-      if (enrollmentId) await activateEnrollment(enrollmentId, 'mercadopago', String(id));
+      const enrollmentId = Number(payment.external_reference) || hintedEnrollment;
+      if (enrollmentId) {
+        await activateEnrollment(enrollmentId, 'mercadopago', String(id), seller.settlement);
+      }
     }
   } catch (err) {
     logger.error('MP webhook error:', err.message);
@@ -196,7 +265,7 @@ export async function handleMpWebhook(body, query_params, headers = {}) {
 
 // ─── Shared activation (B-2 idempotent + W-7 transactional) ──────────────────
 
-async function activateEnrollment(enrollmentId, gateway, gatewayRef) {
+async function activateEnrollment(enrollmentId, gateway, gatewayRef, settlement = 'platform') {
   // All DB mutations run in a single transaction for consistency (W-7).
   // Returns enrollment row for post-commit side-effects, or null on duplicate.
   const enrollment = await transaction(async (conn) => {
@@ -235,8 +304,10 @@ async function activateEnrollment(enrollmentId, gateway, gatewayRef) {
   if (!enrollment) return;
 
   // Post-commit side-effects: provider credit, XP award and in-app notification.
-  // Le acredita al proveedor su parte del cobro (idempotente por inscripción).
-  await creditEnrollment(enrollmentId);
+  // Se anota el movimiento en el libro del proveedor siempre, porque es su
+  // historial de ventas. `settlement` distingue si además le genera saldo a
+  // retirar o si ya cobró directo en su cuenta.
+  await creditEnrollment(enrollmentId, { settlement, gateway_ref: gatewayRef });
 
   // Running outside the transaction shortens the lock window; these operations
   // are safe to re-attempt if the process crashes here (they are append-only).

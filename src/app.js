@@ -27,6 +27,7 @@ import trainingPlansRoutes  from './routes/training-plans.routes.js';
 import analyticsRoutes      from './routes/analytics.routes.js';
 import gamificationRoutes   from './routes/gamification.routes.js';
 import aiRoutes             from './routes/ai.routes.js';
+import subscriptionsRoutes  from './routes/subscriptions.routes.js';
 
 const app = express();
 
@@ -71,11 +72,22 @@ const authLimiter = rateLimit({
   message: { code: 'RATE_LIMIT', message: 'Demasiados intentos. Intentá en 15 minutos.' },
 });
 
+// Los webhooks de App Store y Google Play llegan en ráfagas desde una sola IP
+// (la de Apple / Pub/Sub) y se reintentan si no responden 2xx: si el limitador
+// los frena, se pierden renovaciones y reembolsos.
+const STORE_WEBHOOK_PATHS = new Set([
+  '/api/subscriptions/apple/notifications',
+  '/api/subscriptions/google/notifications',
+]);
+
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 120,
   standardHeaders: true,
   legacyHeaders: false,
+  // originalUrl porque req.path viene recortado del prefijo /api al que se
+  // monta este limitador.
+  skip: (req) => STORE_WEBHOOK_PATHS.has(req.originalUrl.split('?')[0]),
   message: { code: 'RATE_LIMIT', message: 'Demasiadas solicitudes. Intentá en un momento.' },
 });
 
@@ -113,6 +125,7 @@ app.use('/api/training-plans',  trainingPlansRoutes);
 app.use('/api/analytics',       analyticsRoutes);
 app.use('/api/gamification',    gamificationRoutes);
 app.use('/api/ai',              aiRoutes);
+app.use('/api/subscriptions',   subscriptionsRoutes);
 // Mounted at /api (not a sub-prefix) so it can serve both
 // GET  /api/activities/:id/sessions  and
 // POST /api/sessions/:sid/book

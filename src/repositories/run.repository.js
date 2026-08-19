@@ -156,17 +156,20 @@ export async function findSessionById(id) {
 
 export async function finishSession(id, summary) {
   const { finished_at, duration_s, distance_m, avg_pace_s, avg_speed_mps,
-          avg_hr_bpm, deviates_count, max_elevation_m, min_elevation_m } = summary;
+          avg_hr_bpm, deviates_count, max_elevation_m, min_elevation_m,
+          limited_by_plan } = summary;
   await query(
     `UPDATE run_sessions SET
        status = 'completed', finished_at = ?,
        duration_s = ?, distance_m = ?, avg_pace_s = ?,
        avg_speed_mps = ?, avg_hr_bpm = ?,
-       deviates_count = ?, max_elevation_m = ?, min_elevation_m = ?
+       deviates_count = ?, max_elevation_m = ?, min_elevation_m = ?,
+       limited_by_plan = COALESCE(?, limited_by_plan)
      WHERE id = ?`,
     [finished_at, duration_s, distance_m, avg_pace_s ?? null,
      avg_speed_mps ?? null, avg_hr_bpm ?? null,
-     deviates_count ?? 0, max_elevation_m ?? null, min_elevation_m ?? null, id]
+     deviates_count ?? 0, max_elevation_m ?? null, min_elevation_m ?? null,
+     limited_by_plan ?? null, id]
   );
   return findSessionById(id);
 }
@@ -202,6 +205,26 @@ export async function insertTelemetryPoints(sessionId, points) {
       flatValues
     );
   }
+}
+
+/** Último punto guardado de una sesión, para encadenar la distancia del lote siguiente. */
+export async function findLastTelemetryPoint(sessionId) {
+  return queryOne(
+    `SELECT lat, lng, ts_ms FROM run_telemetry_points
+      WHERE session_id = ? ORDER BY ts_ms DESC, id DESC LIMIT 1`,
+    [sessionId]
+  );
+}
+
+/** Guarda la distancia acumulada de una sesión activa y si tocó el tope del plan. */
+export async function updateSessionProgress(sessionId, { live_distance_m, limited_by_plan }) {
+  await query(
+    `UPDATE run_sessions
+        SET live_distance_m = ?,
+            limited_by_plan = COALESCE(?, limited_by_plan)
+      WHERE id = ?`,
+    [live_distance_m, limited_by_plan ?? null, sessionId]
+  );
 }
 
 export async function findSessionsByUser(userId, { status = 'completed', limit = 20, offset = 0 } = {}) {
